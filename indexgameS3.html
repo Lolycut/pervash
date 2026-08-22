@@ -1,0 +1,1610 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Биосфера: Космическая Одиссея</title>
+    <!-- Telegram WebApp SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        :root {
+            --bg-deep: #07090e;
+            --panel-bg: rgba(16, 22, 36, 0.85);
+            --panel-border: rgba(0, 255, 170, 0.25);
+            --neon-green: #00ffaa;
+            --neon-cyan: #00e5ff;
+            --neon-amber: #ffaa00;
+            --neon-purple: #bd00ff;
+            --neon-red: #ff3366;
+            --neon-gold: #ffd700;
+            --text-main: #f0f6fc;
+            --text-muted: #8b9bb4;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Consolas", monospace;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-deep);
+            color: var(--text-main);
+            overflow-x: hidden;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        #space-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        .alarm-vignette {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            box-shadow: inset 0 0 50px rgba(255, 51, 102, 0);
+            pointer-events: none;
+            z-index: 10;
+            transition: box-shadow 0.25s ease;
+        }
+
+        .alarm-vignette.active {
+            animation: pulse-alarm 0.8s infinite alternate;
+        }
+
+        @keyframes pulse-alarm {
+            0% { box-shadow: inset 0 0 25px rgba(255, 51, 102, 0.35); }
+            100% { box-shadow: inset 0 0 85px rgba(255, 51, 102, 0.9); }
+        }
+
+        .app-container {
+            flex: 1;
+            padding: 10px 14px 75px;
+            display: flex;
+            flex-direction: column;
+            max-width: 480px;
+            margin: 0 auto;
+            width: 100%;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* HUD */
+        .hud-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            backdrop-filter: blur(14px);
+            border-radius: 14px;
+            padding: 8px 12px;
+            margin-bottom: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        .hud-pilot-name {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--neon-green);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex-wrap: wrap;
+        }
+
+        .hud-mode-badge {
+            font-size: 9px;
+            font-weight: 800;
+            padding: 1px 6px;
+            border-radius: 6px;
+            background: rgba(255, 51, 102, 0.2);
+            color: var(--neon-red);
+            border: 1px solid var(--neon-red);
+            margin-left: 4px;
+            display: none;
+        }
+
+        .hud-mode-badge.active {
+            display: inline-block;
+        }
+
+        .hud-stage-badge {
+            display: inline-block;
+            font-size: 10px;
+            font-weight: 800;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: rgba(0, 229, 255, 0.15);
+            color: var(--neon-cyan);
+            border: 1px solid rgba(0, 229, 255, 0.3);
+            margin-top: 2px;
+        }
+
+        .hud-metrics {
+            display: flex;
+            gap: 12px;
+            text-align: right;
+        }
+
+        .metric-label {
+            font-size: 9px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        .metric-val {
+            font-size: 15px;
+            font-weight: 800;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .metric-val.timer { color: var(--neon-cyan); }
+        .metric-val.score { color: var(--neon-gold); }
+
+        /* КАРТОЧКА МОДУЛЯ */
+        .stage-card {
+            background: radial-gradient(circle at center, rgba(0, 255, 170, 0.06) 0%, var(--panel-bg) 75%);
+            border: 1px solid var(--panel-border);
+            backdrop-filter: blur(14px);
+            border-radius: 18px;
+            padding: 14px;
+            text-align: center;
+            position: relative;
+            margin-bottom: 10px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+        }
+
+        .stage-title {
+            font-size: 13px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            color: #fff;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .stage-desc {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        .viewport-box {
+            width: 76px;
+            height: 76px;
+            margin: 0 auto 6px;
+            border-radius: 50%;
+            border: 2px solid var(--neon-green);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            background: rgba(0, 0, 0, 0.6);
+            box-shadow: 0 0 25px rgba(0, 255, 170, 0.2);
+            font-size: 38px;
+            transition: all 0.25s ease;
+        }
+
+        /* СПЕЦИАЛЬНЫЕ ПАНЕЛИ */
+        .highlight-box {
+            background: rgba(4, 8, 16, 0.85);
+            border: 1px solid rgba(0, 229, 255, 0.35);
+            border-radius: 12px;
+            padding: 8px 10px;
+            margin-top: 6px;
+            margin-bottom: 2px;
+            box-shadow: inset 0 0 15px rgba(0, 229, 255, 0.08);
+        }
+
+        .highlight-box-title {
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            color: var(--neon-cyan);
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+
+        .targets-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+
+        .target-item-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 5px 6px;
+            font-size: 10px;
+            text-align: center;
+            transition: all 0.2s ease;
+        }
+
+        .target-item-card.ok {
+            border-color: var(--neon-green);
+            background: rgba(0, 255, 170, 0.12);
+            box-shadow: 0 0 10px rgba(0, 255, 170, 0.2);
+        }
+
+        .target-item-card.warn {
+            border-color: var(--neon-red);
+            background: rgba(255, 51, 102, 0.15);
+            box-shadow: 0 0 10px rgba(255, 51, 102, 0.25);
+        }
+
+        .target-val {
+            font-size: 11px;
+            font-weight: 800;
+            margin-top: 2px;
+        }
+
+        /* ПАНЕЛЬ ЭТАПА 2 */
+        .stage2-tuner-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 5px;
+            text-align: center;
+        }
+
+        .stage2-metric-box {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 5px 2px;
+        }
+
+        .stage2-metric-box.matched {
+            border-color: var(--neon-green);
+            background: rgba(0, 255, 170, 0.15);
+            box-shadow: 0 0 10px rgba(0, 255, 170, 0.2);
+        }
+
+        .stage2-metric-box.unmatched {
+            border-color: var(--neon-amber);
+            background: rgba(255, 170, 0, 0.1);
+        }
+
+        .stage2-metric-box.danger {
+            border-color: var(--neon-red);
+            background: rgba(255, 51, 102, 0.2);
+            animation: pulse-alarm 0.5s infinite alternate;
+        }
+
+        /* ПРЕДУПРЕЖДЕНИЯ ЭТАПА 3 */
+        .bio-warning-badge {
+            font-size: 10px;
+            font-weight: 800;
+            padding: 4px;
+            border-radius: 6px;
+            margin-top: 4px;
+            display: none;
+            animation: pulse-alarm 0.6s infinite alternate;
+        }
+
+        .bio-warning-badge.active {
+            display: block;
+        }
+
+        /* ШКАЛЫ */
+        .gauges-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .gauge-card {
+            background: var(--panel-bg);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            border-radius: 12px;
+            padding: 8px 10px;
+            backdrop-filter: blur(10px);
+        }
+
+        .gauge-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .gauge-progress-bg {
+            width: 100%;
+            height: 7px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .gauge-fill {
+            height: 100%;
+            width: 50%;
+            border-radius: 6px;
+            transition: width 0.12s ease, background-color 0.25s ease;
+        }
+
+        .fill-green { background: linear-gradient(90deg, #00ffaa, #00e5ff); box-shadow: 0 0 10px #00ffaa; }
+        .fill-cyan { background: linear-gradient(90deg, #0088ff, #00e5ff); box-shadow: 0 0 10px #00e5ff; }
+        .fill-amber { background: linear-gradient(90deg, #ff8800, #ffbb00); box-shadow: 0 0 10px #ffaa00; }
+        .fill-purple { background: linear-gradient(90deg, #9900ff, #e000ff); box-shadow: 0 0 10px #bd00ff; }
+        .fill-danger { background: var(--neon-red) !important; box-shadow: 0 0 12px var(--neon-red) !important; }
+
+        /* КНОПКИ УПРАВЛЕНИЯ */
+        .controls-deck {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .action-btn {
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 12px;
+            padding: 10px 14px;
+            color: var(--text-main);
+            font-weight: 700;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            transition: all 0.12s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .action-btn:active {
+            transform: scale(0.97);
+            background: rgba(0, 255, 170, 0.15);
+        }
+
+        .btn-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        /* ТУМБЛЕР УСТЬИЦ */
+        .stomata-toggle {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+        }
+
+        .switch-pill {
+            width: 40px;
+            height: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            position: relative;
+            transition: background 0.3s;
+        }
+
+        .switch-knob {
+            width: 14px;
+            height: 14px;
+            background: #fff;
+            border-radius: 50%;
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            transition: transform 0.3s;
+        }
+
+        .stomata-active .switch-pill {
+            background: var(--neon-amber);
+            box-shadow: 0 0 12px var(--neon-amber);
+        }
+
+        .stomata-active .switch-knob {
+            transform: translateX(20px);
+            background: #000;
+        }
+
+        /* ПЛАВАЮЩИЙ ТЕКСТ */
+        .floating-bubble {
+            position: absolute;
+            font-size: 13px;
+            font-weight: 800;
+            pointer-events: none;
+            animation: float-fade 0.8s forwards ease-out;
+            z-index: 100;
+        }
+
+        @keyframes float-fade {
+            0% { transform: translateY(0) scale(0.85); opacity: 1; }
+            100% { transform: translateY(-35px) scale(1.1); opacity: 0; }
+        }
+
+        /* НАВИГАЦИЯ */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: rgba(10, 14, 24, 0.95);
+            backdrop-filter: blur(16px);
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            justify-content: space-around;
+            padding: 8px 10px 14px;
+            z-index: 50;
+        }
+
+        .nav-item {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 600;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+            padding: 4px 16px;
+            border-radius: 12px;
+            transition: all 0.2s;
+        }
+
+        .nav-item.active {
+            color: var(--neon-green);
+            background: rgba(0, 255, 170, 0.1);
+        }
+
+        .nav-icon { font-size: 18px; }
+
+        /* МОДАЛЬНЫЕ ОКНА */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(4, 6, 12, 0.92);
+            backdrop-filter: blur(12px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+
+        .modal-card {
+            background: var(--panel-bg);
+            border: 2px solid var(--neon-green);
+            border-radius: 22px;
+            padding: 20px 16px;
+            text-align: center;
+            max-width: 360px;
+            width: 100%;
+            box-shadow: 0 0 40px rgba(0, 255, 170, 0.3);
+            animation: modal-pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes modal-pop {
+            0% { transform: scale(0.85); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .modal-title { font-size: 17px; font-weight: 800; margin-bottom: 8px; color: #fff; }
+        .modal-desc { font-size: 12px; color: var(--text-muted); line-height: 1.4; margin-bottom: 16px; text-align: left; }
+
+        .modal-instruction-box {
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(0, 229, 255, 0.25);
+            border-radius: 10px;
+            padding: 10px;
+            margin-bottom: 14px;
+            font-size: 11px;
+            color: var(--text-main);
+            text-align: left;
+            line-height: 1.45;
+        }
+
+        .modal-instruction-box b {
+            color: var(--neon-green);
+        }
+
+        .btn-modal {
+            background: linear-gradient(135deg, var(--neon-green), #00bb77);
+            color: #000;
+            border: none;
+            border-radius: 12px;
+            padding: 13px;
+            font-weight: 800;
+            font-size: 13px;
+            cursor: pointer;
+            width: 100%;
+            box-shadow: 0 4px 20px rgba(0, 255, 170, 0.4);
+            margin-bottom: 8px;
+            transition: transform 0.15s ease, opacity 0.2s ease;
+        }
+
+        .btn-modal:active { transform: scale(0.97); }
+
+        .btn-modal.expert {
+            background: linear-gradient(135deg, #bd00ff, #ff3366);
+            color: #fff;
+            box-shadow: 0 4px 20px rgba(189, 0, 255, 0.4);
+            margin-bottom: 0;
+        }
+
+        /* Защита от миссклика (блокировка кнопок) */
+        .btn-modal.btn-disabled {
+            opacity: 0.5 !important;
+            pointer-events: none !important;
+            cursor: not-allowed !important;
+            box-shadow: none !important;
+        }
+
+        .tab-view { display: none; animation: fade-in 0.25s ease; }
+        .tab-view.active { display: block; }
+
+        @keyframes fade-in {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .leader-item {
+            background: var(--panel-bg);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 10px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .leader-rank { font-weight: 800; font-size: 16px; width: 30px; color: var(--neon-amber); }
+        .rank-1 {
+            border: 1px solid rgba(255, 215, 0, 0.4);
+            background: radial-gradient(circle at left, rgba(255, 215, 0, 0.15) 0%, var(--panel-bg) 80%);
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.15);
+        }
+        .rank-1 .leader-rank { color: var(--neon-gold); font-size: 20px; }
+    </style>
+</head>
+<body>
+
+    <canvas id="space-bg"></canvas>
+    <div class="alarm-vignette" id="alarmVignette"></div>
+
+    <div class="app-container">
+
+        <!-- ================= ВКЛАДКА 1: ИГРА / МИССИЯ ================= -->
+        <div class="tab-view active" id="tab-game">
+            
+            <div class="hud-header">
+                <div>
+                    <div class="hud-pilot-name">
+                        👨‍🚀 <span id="pilotName">Космонавт</span>
+                        <span class="hud-mode-badge" id="hudModeBadge">🔥 ОПЫТНЫЙ (x2.5)</span>
+                    </div>
+                    <div class="hud-stage-badge" id="hudStageBadge">ЭТАП 1/4: ВЗЛЁТ</div>
+                </div>
+                <div class="hud-metrics">
+                    <div>
+                        <div class="metric-label">Время</div>
+                        <div class="metric-val timer" id="timerDisplay">00:00</div>
+                    </div>
+                    <div>
+                        <div class="metric-label">Очки</div>
+                        <div class="metric-val score" id="scoreDisplay">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ИГРОВОЙ БЛОК ОТСЕКОВ -->
+            <div id="stageContainer">
+
+                <!-- КАРТОЧКА ТЕКУЩЕГО ЭТАПА -->
+                <div class="stage-card">
+                    <div class="stage-title" id="stageTitle">🚀 СТАРТОВЫЙ МОДУЛЬ: ВЗЛЁТ</div>
+                    <div class="stage-desc" id="stageDesc">Удерживай тягу и крен в безопасном коридоре атмосферы!</div>
+                    <div class="viewport-box" id="viewportIcon">🚀</div>
+                    <div style="font-size: 11px; font-weight: 800; color: var(--neon-green);" id="stageStatusText">ВЫСОТА: 0 / 100 КМ</div>
+
+                    <!-- ДИНАМИЧЕСКИЙ БЛОК ОСОБЫХ ПАРАМЕТРОВ -->
+                    <div id="specialStagePanel"></div>
+                </div>
+
+                <!-- 4 ДИНАМИЧЕСКИЕ ШКАЛЫ -->
+                <div class="gauges-grid" id="gaugesGrid">
+                    <div class="gauge-card">
+                        <div class="gauge-header">
+                            <span id="g1Name" style="color: var(--neon-green)">🔥 Тяга</span>
+                            <span id="g1Val">50%</span>
+                        </div>
+                        <div class="gauge-progress-bg"><div class="gauge-fill fill-green" id="g1Fill" style="width: 50%"></div></div>
+                    </div>
+
+                    <div class="gauge-card">
+                        <div class="gauge-header">
+                            <span id="g2Name" style="color: var(--neon-cyan)">🧭 Крен</span>
+                            <span id="g2Val">50%</span>
+                        </div>
+                        <div class="gauge-progress-bg"><div class="gauge-fill fill-cyan" id="g2Fill" style="width: 50%"></div></div>
+                    </div>
+
+                    <div class="gauge-card">
+                        <div class="gauge-header">
+                            <span id="g3Name" style="color: var(--neon-amber)">🛡️ Обшивка</span>
+                            <span id="g3Val">100%</span>
+                        </div>
+                        <div class="gauge-progress-bg"><div class="gauge-fill fill-amber" id="g3Fill" style="width: 100%"></div></div>
+                    </div>
+
+                    <div class="gauge-card">
+                        <div class="gauge-header">
+                            <span id="g4Name" style="color: var(--neon-purple)">⚡ Энергия</span>
+                            <span id="g4Val">80%</span>
+                        </div>
+                        <div class="gauge-progress-bg"><div class="gauge-fill fill-purple" id="g4Fill" style="width: 80%"></div></div>
+                    </div>
+                </div>
+
+                <!-- ДИНАМИЧЕСКИЙ ПУЛЬТ УПРАВЛЕНИЯ -->
+                <div class="controls-deck" id="controlsDeck"></div>
+
+            </div>
+        </div>
+
+        <!-- ================= ВКЛАДКА 2: ЛИДЕРБОРД ================= -->
+        <div class="tab-view" id="tab-leaderboard">
+            <h3 style="margin-bottom: 12px; font-size: 15px; color: var(--neon-green)">🏆 БОРТОВОЙ ЖУРНАЛ СТАНЦИИ</h3>
+            <div id="leaderboardList">
+                <div class="stage-card" style="text-align: center; padding: 20px;">
+                    <div style="font-size: 28px; margin-bottom: 8px;">📊</div>
+                    <div style="font-size: 13px; color: var(--text-main); font-weight: 700; margin-bottom: 4px;">Синхронизация с ботом</div>
+                    <div style="font-size: 11px; color: var(--text-muted);">Актуальный топ-10 пилотов со всей информацией доступен прямо в Telegram по кнопке «🏆 Таблица лидеров»!</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= ВКЛАДКА 3: ДОСЬЕ ================= -->
+        <div class="tab-view" id="tab-profile">
+            <h3 style="margin-bottom: 12px; font-size: 15px; color: var(--neon-cyan)">👨‍🚀 ДОСЬЕ ИСПЫТАТЕЛЯ</h3>
+            <div class="stage-card" style="text-align: left;">
+                <div style="font-size: 11px; color: var(--text-muted)">Позывной космонавта:</div>
+                <div style="font-size: 17px; font-weight: 800; color: #fff; margin-bottom: 8px;" id="profileCallsign">Загрузка...</div>
+                
+                <div style="font-size: 11px; color: var(--text-muted)">Испытательная группа:</div>
+                <div style="font-size: 14px; font-weight: 700; color: var(--neon-green); margin-bottom: 8px;" id="profileGroup">—</div>
+
+                <div style="font-size: 11px; color: var(--text-muted)">Специализация:</div>
+                <div style="font-size: 14px; font-weight: 700; color: var(--neon-cyan); margin-bottom: 12px;" id="profileSpecialty">—</div>
+
+                <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 8px; display: flex; justify-content: space-between; margin-bottom: 12px;">
+                    <span>Личный рекорд:</span>
+                    <strong style="color: var(--neon-gold)" id="profileBestScore">0 PTS</strong>
+                </div>
+
+                <button class="btn-modal expert" onclick="restartWholeGame(true)">⚡ ЗАПУСК В РЕЖИМЕ «ОПЫТНЫЙ ПИЛОТ» (x2.5 PTS)</button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ================= МОДАЛКА: БРИФИНГ ПЕРЕД ЭТАПОМ ================= -->
+    <div class="modal-overlay" id="stageBriefingModal">
+        <div class="modal-card">
+            <div style="font-size: 40px; margin-bottom: 6px;" id="briefingIcon">🚀</div>
+            <div class="modal-title" id="briefingTitle">ЭТАП 1: ВЗЛЁТ</div>
+            <div class="modal-desc" id="briefingDesc">Инструкция перед запуском систем отсека:</div>
+            
+            <div class="modal-instruction-box" id="briefingDetails">
+                <!-- Заполняется динамически -->
+            </div>
+
+            <button class="btn-modal" id="btnStartStage" onclick="startCurrentStage()">🚀 ПОЕХАЛИ! В БОЙ</button>
+        </div>
+    </div>
+
+    <!-- МОДАЛКА: ШТРАФ -2000 И АВАРИЙНЫЙ ПРОХОД ДАЛЬШЕ -->
+    <div class="modal-overlay" id="penaltyModal">
+        <div class="modal-card" style="border-color: var(--neon-red); box-shadow: 0 0 35px rgba(255, 51, 102, 0.4);">
+            <div style="font-size: 38px; margin-bottom: 6px;">🚨</div>
+            <div class="modal-title" style="color: var(--neon-red)">АВАРИЙНЫЙ ПРОТОКОЛ!</div>
+            <div class="modal-desc" id="penaltyDesc">
+                Сбой в отсеке! Бортовой компьютер активировал автоматические турели спасения.<br><br>
+                💸 <strong>ШТРАФ: -2 000 PTS</strong><br>
+                Миссия продолжается, переходим к следующему отсеку!
+            </div>
+            <button class="btn-modal" id="btnPenaltyProceed" onclick="proceedAfterPenalty()">🛠️ ДАЛЕЕ К СЛЕДУЮЩЕМУ ОТСЕКУ</button>
+        </div>
+    </div>
+
+    <!-- МОДАЛКА: ФИНАЛЬНЫЙ ТРИУМФ -->
+    <div class="modal-overlay" id="victoryModal">
+        <div class="modal-card">
+            <div style="font-size: 44px; margin-bottom: 6px;">🏆</div>
+            <div class="modal-title" style="color: var(--neon-gold)">СТЫКОВКА УСПЕШНА!</div>
+            <div class="modal-desc" id="victoryDesc">
+                Ракета успешно пристыковалась к орбитальной станции «БИОФАК-1»!<br><br>
+                📊 <strong>ИТОГОВЫЙ СЧЁТ:</strong> <span id="finalScoreText" style="color:var(--neon-gold); font-size:16px; font-weight:800;">0 PTS</span><br>
+                🥇 <strong>МЕСТО В ТОПЕ:</strong> <span id="finalRankText" style="color:var(--neon-green); font-size:16px; font-weight:800;">#—</span>
+            </div>
+            <button class="btn-modal" id="btnVictoryNormal" onclick="restartWholeGame(false)">🚀 ОБЫЧНЫЙ ПОЛЁТ</button>
+            <button class="btn-modal expert" id="btnVictoryExpert" onclick="restartWholeGame(true)">⚡ ОПЫТНЫЙ ПИЛОТ (x2.5 PTS)</button>
+        </div>
+    </div>
+
+    <!-- НАВИГАЦИЯ -->
+    <div class="bottom-nav">
+        <button class="nav-item active" onclick="switchTab('game', this)">
+            <span class="nav-icon">🚀</span>
+            <span>Миссия</span>
+        </button>
+        <button class="nav-item" onclick="switchTab('leaderboard', this)">
+            <span class="nav-icon">🏆</span>
+            <span>Журнал</span>
+        </button>
+        <button class="nav-item" onclick="switchTab('profile', this)">
+            <span class="nav-icon">👨‍🚀</span>
+            <span>Досье</span>
+        </button>
+    </div>
+
+    <script>
+        /* =========================================================================
+           ⚙️ НАСТРОЙКА BACKEND API
+           ========================================================================= */
+        const API_BASE_URL = window.location.origin;
+
+        const tg = window.Telegram?.WebApp;
+        if (tg) { 
+            tg.expand(); 
+            tg.ready(); 
+        }
+
+        function haptic(type = 'light') {
+            try {
+                if (tg?.HapticFeedback) {
+                    if (['success', 'warning', 'error'].includes(type)) tg.HapticFeedback.notificationOccurred(type);
+                    else tg.HapticFeedback.impactOccurred(type);
+                }
+            } catch (e) {}
+        }
+
+        /* =========================================================================
+           ИНТЕГРАЦИЯ С БЭКЕНДОМ DURKA
+           ========================================================================= */
+        async function loadProfileFromBackend() {
+            if (!tg?.initData) return;
+            try {
+                const resp = await fetch(`${API_BASE_URL}/api/profile`, {
+                    headers: { 'Authorization': `Bearer ${tg.initData}` }
+                });
+                if (resp.ok) {
+                    const data = await resp.json();
+                    document.getElementById('pilotName').innerText = data.callsign || 'Космонавт';
+                    document.getElementById('profileCallsign').innerText = data.callsign || '—';
+                    document.getElementById('profileGroup').innerText = `Группа ${data.group_num || '—'}`;
+                    document.getElementById('profileSpecialty').innerText = data.specialty || '—';
+                    document.getElementById('profileBestScore').innerText = `${(data.high_score || 0).toLocaleString('ru-RU')} PTS`;
+                    Game.bestScore = data.high_score || 0;
+                }
+            } catch (e) {
+                console.warn('Не удалось загрузить профиль с бэкенда:', e);
+            }
+        }
+
+        async function saveScoreToBackend(score, isExpert) {
+            if (!tg?.initData) return null;
+            try {
+                const resp = await fetch(`${API_BASE_URL}/api/save_score`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${tg.initData}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ score: score, is_experienced: isExpert ? 1 : 0 })
+                });
+                if (resp.ok) {
+                    const res = await resp.json();
+                    return res;
+                }
+            } catch (e) {
+                console.error('Ошибка сохранения счета:', e);
+            }
+            return null;
+        }
+
+        /* =========================================================================
+           ГЛОБАЛЬНОЕ СОСТОЯНИЕ МИССИИ
+           ========================================================================= */
+        const Game = {
+            stage: 1,
+            totalScore: 0,
+            seconds: 0,
+            ticks: 0,
+            isRunning: false,
+            bestScore: 0,
+
+            // НАСТРОЙКИ СЛОЖНОСТИ
+            isExpert: false,
+            difficultyMult: 1.0,
+            scoreMult: 1.0,
+
+            // ЭТАП 1: ВЗЛЕТ
+            s1: { altitude: 0, thrust: 500, pitch: 500, hull: 1000, targetThrust: 600, targetPitch: 500 },
+
+            // ЭТАП 2: СВЯЗЬ
+            s2: { curChannel: 1, targetChannel: 4, hz: 600, energy: 800, packets: 0 },
+
+            // ЭТАП 3: БИО-СЖО
+            s3: { oxygen: 650, water: 550, co2: 400, photons: 400, stomataOpen: false, timeLeft: 40 },
+
+            // ЭТАП 4: СТЫКОВКА
+            s4: { distance: 300, pressure: 500, angle: 47.5, integrity: 1000 }
+        };
+
+        let mainLoop = null;
+
+        /* =========================================================================
+           ОБЪЯСНЕНИЯ ЭТАПОВ (БРИФИНГИ)
+           ========================================================================= */
+        const STAGE_BRIEFINGS = {
+            1: {
+                icon: "🚀",
+                title: "ЭТАП 1: СТАРТ И ВЗЛЁТ",
+                desc: "Выход ракеты на суборбитальную траекторию (100 км):",
+                details: `
+                    🎯 <b>ЦЕЛЬ:</b> Достичь высоты 100 км.<br><br>
+                    🕹 <b>КАК УПРАВЛЯТЬ:</b><br>
+                    • Жми <b>«🔥 Форсаж тяги»</b>, чтобы тяга не упала до нуля.<br>
+                    • Кнопками <b>«◀ Крен влево»</b> и <b>«Крен вправо ▶»</b> держи ракету в зеленом целевом коридоре.<br>
+                    ⚠️ <i>Выход за пределы коридора разрушает обшивку ракеты!</i>
+                `
+            },
+            2: {
+                icon: "📡",
+                title: "ЭТАП 2: БЛОК СВЯЗИ",
+                desc: "Настройка несущей частоты и энергопитания бортовой антенны:",
+                details: `
+                    🎯 <b>ЦЕЛЬ:</b> Передать 3 пакета данных на станцию.<br><br>
+                    🕹 <b>КАК УПРАВЛЯТЬ:</b><br>
+                    • Кнопками <b>Канал ±1</b> найди целевой канал (CH-X).<br>
+                    • Жми <b>«📶 Удержать частоту»</b>, чтобы частота была >35%.<br>
+                    • ⚡ <b>КРИТИЧНО:</b> Энергия тает со скоростью <b>-10%/сек</b>! Регулярно жми <b>«⚡ Подпитка энергоблока»</b>, чтобы не обесточить антенну!
+                `
+            },
+            3: {
+                icon: "🌿",
+                title: "ЭТАП 3: ОРАНЖЕРЕЯ СЖО",
+                desc: "Стабилизация биосферы и газообмена (40 секунд):",
+                details: `
+                    🎯 <b>ЦЕЛЬ:</b> Продержаться 40 секунд и не угробить экипаж.<br><br>
+                    🕹 <b>КАК УПРАВЛЯТЬ:</b><br>
+                    • 🫁 <b>«🌿 Клапан устьиц»:</b> Включает фотосинтез (производит кислород O₂).<br>
+                    • 💧 <b>«💧 Подкачка»:</b> Добавляет воду гидропонике.<br>
+                    • ⚡ <b>«⚡ Импульс фотонов»:</b> Дает свет растениям.<br>
+                    🚨 <b>ОПАСНОСТЬ:</b> При <b>100% воды</b> гидропоника тонет, а при <b>100% кислорода</b> происходит взрыв! Не перекачивай!
+                `
+            },
+            4: {
+                icon: "🛰️",
+                title: "ЭТАП 4: СТЫКОВКА ШЛЮЗА",
+                desc: "Финальное сближение с орбитальной станцией «БИОФАК-1»:",
+                details: `
+                    🎯 <b>ЦЕЛЬ:</b> Сократить дистанцию с 300 до 0 метров.<br><br>
+                    🕹 <b>КАК УПРАВЛЯТЬ:</b><br>
+                    • Кнопками <b>«◀ Угол / Угол ▶»</b> удерживай корабль СТРОГО в коридоре <b>40.0° – 55.0°</b>.<br>
+                    • Жми <b>«💨 Стабилизировать давление»</b>, если оно скачет.<br>
+                    ⚠️ <i>Любое отклонение угла сминает стыковочный шлюз!</i>
+                `
+            }
+        };
+
+        function showStageBriefing(stageNum) {
+            Game.isRunning = false;
+            const b = STAGE_BRIEFINGS[stageNum];
+            document.getElementById('briefingIcon').innerText = b.icon;
+            document.getElementById('briefingTitle').innerText = b.title;
+            document.getElementById('briefingDesc').innerText = b.desc;
+            document.getElementById('briefingDetails').innerHTML = b.details;
+
+            document.getElementById('stageBriefingModal').style.display = 'flex';
+        }
+
+        function startCurrentStage() {
+            document.getElementById('stageBriefingModal').style.display = 'none';
+            haptic('medium');
+            Game.isRunning = true;
+        }
+
+        /* =========================================================================
+           ЗАЩИТА ОТ МИССКЛИКА (2 СЕКУНДЫ КУЛДАУНА)
+           ========================================================================= */
+        function applyClickProtection(buttons, duration = 2000) {
+            const originalTexts = buttons.map(b => b.innerText);
+            
+            buttons.forEach(b => {
+                b.classList.add('btn-disabled');
+                b.innerText = `⏳ Защита (2с)...`;
+            });
+
+            let timeLeft = 2;
+            const countdown = setInterval(() => {
+                timeLeft--;
+                if (timeLeft > 0) {
+                    buttons.forEach(b => { b.innerText = `⏳ Защита (${timeLeft}с)...`; });
+                } else {
+                    clearInterval(countdown);
+                    buttons.forEach((b, i) => {
+                        b.classList.remove('btn-disabled');
+                        b.innerText = originalTexts[i];
+                    });
+                }
+            }, 1000);
+        }
+
+        function startMission() {
+            if (mainLoop) clearInterval(mainLoop);
+            setupStageUI(1);
+            showStageBriefing(1);
+            mainLoop = setInterval(gameTick, 100);
+        }
+
+        /* =========================================================================
+           ОБЩИЙ ТАКТ ИГРЫ (100 ms)
+           ========================================================================= */
+        function gameTick() {
+            if (!Game.isRunning) return;
+
+            Game.ticks++;
+            if (Game.ticks % 10 === 0) {
+                Game.seconds++;
+                updateTimer();
+            }
+
+            if (Game.stage === 1) tickStage1();
+            else if (Game.stage === 2) tickStage2();
+            else if (Game.stage === 3) tickStage3();
+            else if (Game.stage === 4) tickStage4();
+        }
+
+        function updateTimer() {
+            const m = String(Math.floor(Game.seconds / 60)).padStart(2, '0');
+            const s = String(Game.seconds % 60).padStart(2, '0');
+            document.getElementById('timerDisplay').innerText = `${m}:${s}`;
+        }
+
+        function addScore(baseAmount) {
+            const finalPoints = Math.round(baseAmount * Game.scoreMult);
+            Game.totalScore += finalPoints;
+            document.getElementById('scoreDisplay').innerText = Game.totalScore.toLocaleString('ru-RU');
+        }
+
+        /* =========================================================================
+           ЭТАП 1: ВЗЛЁТ
+           ========================================================================= */
+        function tickStage1() {
+            const s1 = Game.s1;
+            const diff = Game.difficultyMult;
+
+            s1.thrust = Math.max(0, s1.thrust - (3 * diff));
+            s1.pitch = Math.max(0, Math.min(1000, s1.pitch + (Math.random() * 8 - 4) * diff));
+
+            if (Game.ticks % 70 === 0) {
+                s1.targetThrust = Math.floor(Math.random() * 400 + 400);
+                s1.targetPitch = Math.floor(Math.random() * 400 + 300);
+            }
+
+            const thrustOk = Math.abs(s1.thrust - s1.targetThrust) < 220;
+            const pitchOk = Math.abs(s1.pitch - s1.targetPitch) < 200;
+
+            if (thrustOk && pitchOk) {
+                s1.altitude += 0.4;
+                addScore(15);
+                document.getElementById('stageStatusText').innerText = `ВЫСОТА: ${Math.min(100, Math.floor(s1.altitude))} / 100 КМ`;
+            } else {
+                s1.hull = Math.max(0, s1.hull - (4 * diff));
+            }
+
+            const minThrust = Math.max(0, Math.round((s1.targetThrust - 220) / 10));
+            const maxThrust = Math.min(100, Math.round((s1.targetThrust + 220) / 10));
+            const minPitch = Math.max(0, Math.round((s1.targetPitch - 200) / 10));
+            const maxPitch = Math.min(100, Math.round((s1.targetPitch + 200) / 10));
+
+            const curThrustPct = Math.round(s1.thrust / 10);
+            const curPitchPct = Math.round(s1.pitch / 10);
+
+            const cardThrust = document.getElementById('s1CardThrust');
+            const cardPitch = document.getElementById('s1CardPitch');
+            const valThrust = document.getElementById('s1ValThrust');
+            const valPitch = document.getElementById('s1ValPitch');
+
+            if (cardThrust && cardPitch) {
+                cardThrust.className = `target-item-card ${thrustOk ? 'ok' : 'warn'}`;
+                cardPitch.className = `target-item-card ${pitchOk ? 'ok' : 'warn'}`;
+                valThrust.innerHTML = `Тек: <b>${curThrustPct}%</b> [Цель: ${minThrust}-${maxThrust}%] ${thrustOk ? '✅' : '⚠️'}`;
+                valPitch.innerHTML = `Тек: <b>${curPitchPct}%</b> [Цель: ${minPitch}-${maxPitch}%] ${pitchOk ? '✅' : '⚠️'}`;
+            }
+
+            setGauge(1, '🔥 Тяга', s1.thrust, 'fill-green');
+            setGauge(2, '🧭 Крен', s1.pitch, 'fill-cyan');
+            setGauge(3, '🛡️ Обшивка', s1.hull, 'fill-amber');
+            setGauge(4, '🎯 Коридор', thrustOk && pitchOk ? 1000 : 200, 'fill-purple');
+
+            document.getElementById('alarmVignette').classList.toggle('active', s1.hull < 300);
+
+            if (s1.hull <= 0) triggerStageFailure('Обшивка ракеты разрушена перегрузками!');
+            else if (s1.altitude >= 100) nextStage(2);
+        }
+
+        function s1ThrustBoost(e) {
+            Game.s1.thrust = Math.min(1000, Game.s1.thrust + 140);
+            haptic('medium');
+            spawnFloat(e.clientX, e.clientY, '+ТЯГА 🚀', 'var(--neon-green)');
+        }
+
+        function s1PitchAdjust(dir, e) {
+            Game.s1.pitch = Math.max(0, Math.min(1000, Game.s1.pitch + dir * 130));
+            haptic('selection');
+            spawnFloat(e.clientX, e.clientY, dir > 0 ? '▶ ВПРАВО' : '◀ ВЛЕВО', 'var(--neon-cyan)');
+        }
+
+        /* =========================================================================
+           ЭТАП 2: СВЯЗЬ
+           ========================================================================= */
+        function tickStage2() {
+            const s2 = Game.s2;
+            const diff = Game.difficultyMult;
+
+            s2.energy = Math.max(0, s2.energy - (10 * diff));
+            s2.hz = Math.max(0, s2.hz - (5 * diff));
+
+            if (Game.ticks % 90 === 0) {
+                s2.targetChannel = Math.floor(Math.random() * 7) + 1;
+                haptic('warning');
+            }
+
+            const channelMatch = s2.curChannel === s2.targetChannel;
+            const hzOk = s2.hz > 350;
+            const energyOk = s2.energy > 0;
+
+            if (channelMatch && hzOk && energyOk) {
+                addScore(25);
+                if (Game.ticks % 30 === 0) {
+                    s2.packets++;
+                    haptic('success');
+                    spawnFloat(window.innerWidth/2, window.innerHeight/2, `📡 ПАКЕТ ${s2.packets}/3 ОТПРАВЛЕН!`, 'var(--neon-green)');
+                }
+            }
+
+            const boxChannel = document.getElementById('s2BoxChannel');
+            const boxHz = document.getElementById('s2BoxHz');
+            const boxEnergy = document.getElementById('s2BoxEnergy');
+            const textChannel = document.getElementById('s2TextChannel');
+            const textHz = document.getElementById('s2TextHz');
+            const textEnergy = document.getElementById('s2TextEnergy');
+
+            if (boxChannel && boxHz && boxEnergy) {
+                boxChannel.className = `stage2-metric-box ${channelMatch ? 'matched' : 'unmatched'}`;
+                boxHz.className = `stage2-metric-box ${hzOk ? 'matched' : 'unmatched'}`;
+                boxEnergy.className = `stage2-metric-box ${s2.energy < 250 ? 'danger' : (s2.energy > 500 ? 'matched' : 'unmatched')}`;
+                
+                textChannel.innerHTML = `<span style="font-size:12px; font-weight:900;">CH-${s2.curChannel}</span> <span style="font-size:9px;">(Цель: ${s2.targetChannel})</span> ${channelMatch ? '🎯' : '❌'}`;
+                textHz.innerHTML = `<span style="font-size:12px; font-weight:900;">${Math.round(s2.hz / 10)}%</span> <span style="font-size:9px;">(>35%)</span> ${hzOk ? '📶' : '⚠️'}`;
+                textEnergy.innerHTML = `<span style="font-size:12px; font-weight:900;">${Math.round(s2.energy / 10)}%</span> ${s2.energy < 250 ? '🚨' : '⚡'}`;
+            }
+
+            document.getElementById('stageStatusText').innerText = `ПЕРЕДАНО ПАКЕТОВ: ${s2.packets} ИЗ 3`;
+
+            setGauge(1, `📻 Канал (${s2.curChannel}/7)`, Math.round((s2.curChannel/7)*1000), channelMatch ? 'fill-green' : 'fill-danger');
+            setGauge(2, '📶 Частота Hz', s2.hz, 'fill-cyan');
+            setGauge(3, '⚡ Энергия (-10%/с)', s2.energy, s2.energy < 250 ? 'fill-danger' : 'fill-purple');
+            setGauge(4, '📡 Пакеты', Math.round((s2.packets/3)*1000), 'fill-amber');
+
+            document.getElementById('alarmVignette').classList.toggle('active', s2.hz < 200 || s2.energy < 200);
+
+            if (s2.energy <= 0) triggerStageFailure('⚡ ОБЕСТОЧИВАНИЕ! Батареи связи полностью разряжены!');
+            else if (s2.hz <= 0) triggerStageFailure('Потеря несущей частоты связи!');
+            else if (s2.packets >= 3) nextStage(3);
+        }
+
+        function s2ChangeChannel(dir) {
+            Game.s2.curChannel = Math.max(1, Math.min(7, Game.s2.curChannel + dir));
+            haptic('selection');
+        }
+
+        function s2HoldHz(e) {
+            Game.s2.hz = Math.min(1000, Game.s2.hz + 180);
+            haptic('medium');
+            spawnFloat(e.clientX, e.clientY, '+18% HZ 📶', 'var(--neon-cyan)');
+        }
+
+        function s2RechargeEnergy(e) {
+            Game.s2.energy = Math.min(1000, Game.s2.energy + 250);
+            haptic('medium');
+            spawnFloat(e.clientX, e.clientY, '+25% ЭНЕРГИЯ ⚡', 'var(--neon-purple)');
+        }
+
+        /* =========================================================================
+           ЭТАП 3: БИО-СЖО
+           ========================================================================= */
+        function tickStage3() {
+            const s3 = Game.s3;
+            const diff = Game.difficultyMult;
+
+            s3.photons = Math.max(0, s3.photons - (5 * diff));
+            let o2Delta = -2.5 * diff;
+
+            const hasWater = s3.water > 120;
+            const hasPhotons = s3.photons > 120;
+            const hasCO2 = s3.co2 > 120;
+            const isOptimal = hasWater && hasPhotons && hasCO2;
+
+            if (s3.stomataOpen) {
+                s3.co2 = Math.min(1000, s3.co2 + 9);
+                s3.water = Math.max(0, s3.water - (5 * diff));
+
+                if (isOptimal) {
+                    o2Delta += 6.0;
+                    s3.co2 = Math.max(0, s3.co2 - 3);
+                    s3.water = Math.max(0, s3.water - 2);
+                    s3.photons = Math.max(0, s3.photons - 2.5);
+                    addScore(30);
+                } else {
+                    o2Delta -= 1.5 * diff;
+                }
+            } else {
+                s3.co2 = Math.max(0, s3.co2 - 3);
+            }
+
+            s3.oxygen = Math.max(0, s3.oxygen + o2Delta);
+
+            if (Game.ticks % 10 === 0) s3.timeLeft--;
+
+            const warnWater = document.getElementById('s3WarnWater');
+            const warnO2 = document.getElementById('s3WarnO2');
+            if (warnWater && warnO2) {
+                warnWater.classList.toggle('active', s3.water >= 800);
+                warnO2.classList.toggle('active', s3.oxygen >= 800);
+            }
+
+            document.getElementById('stageStatusText').innerText = `ТАЙМЕР СЖО: ${s3.timeLeft} СЕК`;
+
+            setGauge(1, '🫁 Кислород O₂', Math.min(1000, s3.oxygen), s3.oxygen > 850 ? 'fill-danger' : 'fill-green');
+            setGauge(2, '💧 Вода H₂O', Math.min(1000, s3.water), s3.water > 850 ? 'fill-danger' : 'fill-cyan');
+            setGauge(3, '💨 Газ CO₂', s3.co2, 'fill-amber');
+            setGauge(4, '⚡ Фотоны', s3.photons, 'fill-purple');
+
+            const dangerAlert = s3.oxygen < 200 || s3.water < 150 || s3.oxygen > 850 || s3.water > 850;
+            document.getElementById('alarmVignette').classList.toggle('active', dangerAlert);
+
+            if (s3.oxygen >= 1000) {
+                triggerStageFailure('💥 КИСЛОРОДНАЯ ДЕТОНАЦИЯ! Концентрация O₂ достигла 100% — оранжерея взорвалась!');
+            } else if (s3.water >= 1000) {
+                triggerStageFailure('🌊 ЗАТОПЛЕНИЕ ОТСЕКА! Уровень воды 100% — гидропоника захлебнулась и замкнула сеть!');
+            } else if (s3.oxygen <= 0) {
+                triggerStageFailure('Экипаж задохнулся от нехватки кислорода!');
+            } else if (s3.water <= 0) {
+                triggerStageFailure('Оранжерея полностью засохла!');
+            } else if (s3.timeLeft <= 0) {
+                nextStage(4);
+            }
+        }
+
+        function s3PumpWater(e) {
+            Game.s3.water = Game.s3.water + 130;
+            haptic('medium');
+            spawnFloat(e.clientX, e.clientY, '+13% 💧', 'var(--neon-cyan)');
+        }
+
+        function s3PulsePhotons(e) {
+            Game.s3.photons = Math.min(1000, Game.s3.photons + 260);
+            haptic('medium');
+            spawnFloat(e.clientX, e.clientY, '+26% ⚡', 'var(--neon-purple)');
+        }
+
+        function s3ToggleStomata(e) {
+            Game.s3.stomataOpen = !Game.s3.stomataOpen;
+            haptic('selection');
+            const btn = document.getElementById('btnStomata');
+            const label = document.getElementById('stomataLabel');
+            if (Game.s3.stomataOpen) {
+                btn.classList.add('stomata-active');
+                label.innerText = 'ОТКРЫТ';
+                spawnFloat(e.clientX, e.clientY, '💨 Газообмен ВКЛ', 'var(--neon-amber)');
+            } else {
+                btn.classList.remove('stomata-active');
+                label.innerText = 'ЗАКРЫТ';
+                spawnFloat(e.clientX, e.clientY, '🔒 Закрыто', 'var(--neon-green)');
+            }
+        }
+
+        /* =========================================================================
+           ЭТАП 4: СТЫКОВКА
+           ========================================================================= */
+        function tickStage4() {
+            const s4 = Game.s4;
+            const shake = 1.15 * Game.difficultyMult;
+
+            s4.pressure = Math.max(0, Math.min(1000, s4.pressure + (Math.random() * 6 - 3) * shake));
+            s4.angle += (Math.random() * 3.0 - 1.5) * shake;
+
+            const pressureOk = s4.pressure > 350 && s4.pressure < 750;
+            const angleOk = s4.angle >= 40.0 && s4.angle <= 55.0;
+
+            if (pressureOk && angleOk) {
+                s4.distance = Math.max(0, s4.distance - 1.2);
+                addScore(35);
+                document.getElementById('stageStatusText').innerText = `ДИСТАНЦИЯ ДО ШЛЮЗА: ${Math.floor(s4.distance)} М`;
+            } else {
+                s4.integrity = Math.max(0, s4.integrity - (12 * Game.difficultyMult));
+            }
+
+            const cardAngle = document.getElementById('s4CardAngle');
+            const cardPress = document.getElementById('s4CardPress');
+            const valAngle = document.getElementById('s4ValAngle');
+            const valPress = document.getElementById('s4ValPress');
+
+            if (cardAngle && cardPress) {
+                cardAngle.className = `target-item-card ${angleOk ? 'ok' : 'warn'}`;
+                cardPress.className = `target-item-card ${pressureOk ? 'ok' : 'warn'}`;
+                valAngle.innerHTML = `<b>${s4.angle.toFixed(1)}°</b> [40.0°-55.0°] ${angleOk ? '✅' : '🚨 КРИТИЧНО'}`;
+                valPress.innerHTML = `<b>${Math.round(s4.pressure/10)}%</b> [35-75%] ${pressureOk ? '✅' : '⚠️'}`;
+            }
+
+            setGauge(1, '🎯 Дистанция', Math.round(((300 - s4.distance)/300)*1000), 'fill-green');
+            setGauge(2, '💨 Давление', s4.pressure, pressureOk ? 'fill-cyan' : 'fill-danger');
+            const angleGauge = Math.max(0, Math.min(1000, Math.round(((s4.angle - 35) / 25) * 1000)));
+            setGauge(3, `🧭 Угол (${s4.angle.toFixed(1)}°)`, angleGauge, angleOk ? 'fill-purple' : 'fill-danger');
+            setGauge(4, '🛡️ Шлюз', s4.integrity, s4.integrity < 400 ? 'fill-danger' : 'fill-amber');
+
+            document.getElementById('alarmVignette').classList.toggle('active', !pressureOk || !angleOk || s4.integrity < 400);
+
+            if (s4.integrity <= 0) {
+                triggerStageFailure('🚨 АВАРИЯ СТЫКОВКИ! Шлюз смят из-за выхода из углового коридора (40°-55°)!');
+            } else if (s4.distance <= 0) {
+                triggerVictory();
+            }
+        }
+
+        function s4AdjustAngle(dir) {
+            Game.s4.angle += dir * 2.2;
+            haptic('selection');
+        }
+
+        function s4StabilizePressure(e) {
+            Game.s4.pressure = 500;
+            haptic('medium');
+            spawnFloat(e.clientX, e.clientY, '💨 Давление: НОРМА', 'var(--neon-cyan)');
+        }
+
+        /* =========================================================================
+           УПРАВЛЕНИЕ UI
+           ========================================================================= */
+        function setGauge(idx, name, val, fillClass) {
+            document.getElementById(`g${idx}Name`).innerText = name;
+            const pct = Math.min(100, Math.max(0, Math.round(val / 10)));
+            document.getElementById(`g${idx}Val`).innerText = `${pct}%`;
+            const fill = document.getElementById(`g${idx}Fill`);
+            fill.className = `gauge-fill ${fillClass}`;
+            fill.style.width = `${pct}%`;
+        }
+
+        function setupStageUI(stage) {
+            Game.stage = stage;
+            const title = document.getElementById('stageTitle');
+            const desc = document.getElementById('stageDesc');
+            const icon = document.getElementById('viewportIcon');
+            const badge = document.getElementById('hudStageBadge');
+            const deck = document.getElementById('controlsDeck');
+            const specialPanel = document.getElementById('specialStagePanel');
+
+            if (stage === 1) {
+                badge.innerText = 'ЭТАП 1/4: ВЗЛЁТ';
+                title.innerText = '🚀 СТАРТОВЫЙ МОДУЛЬ: ВЗЛЁТ';
+                desc.innerText = 'Удерживай тягу и крен в безопасном коридоре!';
+                icon.innerText = '🚀';
+
+                specialPanel.innerHTML = `
+                    <div class="highlight-box">
+                        <div class="highlight-box-title">🛰️ КОРИДОР ПОЛЁТА (ЦЕЛЕВЫЕ ЗОНЫ)</div>
+                        <div class="targets-grid">
+                            <div class="target-item-card ok" id="s1CardThrust">
+                                <div style="color:var(--neon-green)">🔥 ТЯГА</div>
+                                <div class="target-val" id="s1ValThrust">50% ✅</div>
+                            </div>
+                            <div class="target-item-card ok" id="s1CardPitch">
+                                <div style="color:var(--neon-cyan)">🧭 КРЕН</div>
+                                <div class="target-val" id="s1ValPitch">50% ✅</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                deck.innerHTML = `
+                    <button class="action-btn" onclick="s1ThrustBoost(event)"><span>🔥 Форсаж тяги</span><span style="color:var(--neon-green)">+140</span></button>
+                    <div class="btn-row">
+                        <button class="action-btn" onclick="s1PitchAdjust(-1, event)"><span>◀ Крен влево</span></button>
+                        <button class="action-btn" onclick="s1PitchAdjust(1, event)"><span>Крен вправо ▶</span></button>
+                    </div>
+                `;
+            } else if (stage === 2) {
+                badge.innerText = 'ЭТАП 2/4: СВЯЗЬ';
+                title.innerText = '📡 БЛОК СВЯЗИ И ЭНЕРГОСЕТИ';
+                desc.innerText = 'Ищи канал, держи частоту и не допускай разряда батарей (-10%/с)!';
+                icon.innerText = '📡';
+
+                specialPanel.innerHTML = `
+                    <div class="highlight-box" style="border-color: rgba(0, 255, 170, 0.4);">
+                        <div class="highlight-box-title" style="color: var(--neon-green)">⚡ СТАТУС БЛОКА СВЯЗИ</div>
+                        <div class="stage2-tuner-grid">
+                            <div class="stage2-metric-box unmatched" id="s2BoxChannel">
+                                <div style="font-size:9px; color:var(--text-muted)">КАНАЛ</div>
+                                <div id="s2TextChannel">CH-1 ❌</div>
+                            </div>
+                            <div class="stage2-metric-box matched" id="s2BoxHz">
+                                <div style="font-size:9px; color:var(--text-muted)">ЧАСТОТА</div>
+                                <div id="s2TextHz">60% 📶</div>
+                            </div>
+                            <div class="stage2-metric-box matched" id="s2BoxEnergy">
+                                <div style="font-size:9px; color:var(--text-muted)">БАТАРЕЯ</div>
+                                <div id="s2TextEnergy">80% ⚡</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                deck.innerHTML = `
+                    <button class="action-btn" onclick="s2RechargeEnergy(event)" style="border-color:var(--neon-purple); background:rgba(189,0,255,0.15)">
+                        <span>⚡ Подпитка энергоблока</span><span style="color:var(--neon-purple); font-weight:800">+25% ЭНЕРГИЯ</span>
+                    </button>
+                    <div class="btn-row">
+                        <button class="action-btn" onclick="s2ChangeChannel(-1)"><span>◀ Канал -1</span></button>
+                        <button class="action-btn" onclick="s2ChangeChannel(1)"><span>Канал +1 ▶</span></button>
+                    </div>
+                    <button class="action-btn" onclick="s2HoldHz(event)"><span>📶 Удержать частоту</span><span style="color:var(--neon-cyan)">+180 Hz</span></button>
+                `;
+            } else if (stage === 3) {
+                badge.innerText = 'ЭТАП 3/4: БИО-СЖО';
+                title.innerText = '🌿 ОРАНЖЕРЕЯ ЖИЗНЕОБЕСПЕЧЕНИЯ';
+                desc.innerText = 'Не допускай 100% воды (затопление) и 100% кислорода (взрыв)!';
+                icon.innerText = '🌱';
+
+                specialPanel.innerHTML = `
+                    <div class="bio-warning-badge" id="s3WarnWater" style="background:rgba(0,229,255,0.25); color:var(--neon-cyan); border:1px solid var(--neon-cyan);">
+                        ⚠️ ВНИМАНИЕ: РИСК ЗАТОПЛЕНИЯ ГИДРОПОНИКИ (>80%)!
+                    </div>
+                    <div class="bio-warning-badge" id="s3WarnO2" style="background:rgba(255,51,102,0.25); color:var(--neon-red); border:1px solid var(--neon-red);">
+                        ⚠️ ВНИМАНИЕ: РИСК ДЕТОНАЦИИ КИСЛОРОДА (>80%)!
+                    </div>
+                `;
+
+                deck.innerHTML = `
+                    <button class="action-btn" onclick="s3PumpWater(event)"><span>💧 Подкачка гидропоники</span><span style="color:var(--neon-cyan)">+130</span></button>
+                    <button class="action-btn" onclick="s3PulsePhotons(event)"><span>⚡ Импульс фотонов</span><span style="color:var(--neon-purple)">+260</span></button>
+                    <div class="action-btn" id="btnStomata" onclick="s3ToggleStomata(event)">
+                        <span>🌿 Клапан устьиц (Газообмен)</span>
+                        <div class="stomata-toggle"><span id="stomataLabel">ЗАКРЫТ</span><div class="switch-pill"><div class="switch-knob"></div></div></div>
+                    </div>
+                `;
+            } else if (stage === 4) {
+                badge.innerText = 'ЭТАП 4/4: СТЫКОВКА';
+                title.innerText = '🛰️ СТЫКОВОЧНЫЙ ШЛЮЗ';
+                desc.innerText = 'Удерживай угол строго от 40.0° до 55.0° и давление в норме!';
+                icon.innerText = '🛰️';
+
+                specialPanel.innerHTML = `
+                    <div class="highlight-box" style="border-color: rgba(189, 0, 255, 0.4);">
+                        <div class="highlight-box-title" style="color: var(--neon-purple)">🎯 БЕЗОПАСНЫЙ СТЫКОВОЧНЫЙ КОРИДОР</div>
+                        <div class="targets-grid">
+                            <div class="target-item-card ok" id="s4CardAngle">
+                                <div style="color:var(--neon-purple)">🧭 УГОЛ КОРРИДОРА</div>
+                                <div class="target-val" id="s4ValAngle">47.5° [40.0°-55.0°] ✅</div>
+                            </div>
+                            <div class="target-item-card ok" id="s4CardPress">
+                                <div style="color:var(--neon-cyan)">💨 ДАВЛЕНИЕ</div>
+                                <div class="target-val" id="s4ValPress">50% [35-75%] ✅</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                deck.innerHTML = `
+                    <button class="action-btn" onclick="s4StabilizePressure(event)"><span>💨 Стабилизировать давление</span><span style="color:var(--neon-cyan)">500</span></button>
+                    <div class="btn-row">
+                        <button class="action-btn" onclick="s4AdjustAngle(-1)"><span>◀ Угол -2.2°</span></button>
+                        <button class="action-btn" onclick="s4AdjustAngle(1)"><span>Угол +2.2° ▶</span></button>
+                    </div>
+                `;
+            }
+        }
+
+        function nextStage(targetStage) {
+            haptic('success');
+            spawnFloat(window.innerWidth/2, window.innerHeight/2, '✅ ОТСЕК СТАБИЛИЗИРОВАН!', 'var(--neon-green)');
+            setupStageUI(targetStage);
+            showStageBriefing(targetStage);
+        }
+
+        /* =========================================================================
+           СИСТЕМА ШТРАФА -2000 И АВАРИЙНОГО ПРОХОДА
+           ========================================================================= */
+        function triggerStageFailure(reason) {
+            Game.isRunning = false;
+            haptic('error');
+
+            Game.totalScore = Math.max(0, Game.totalScore - 2000);
+            document.getElementById('scoreDisplay').innerText = Game.totalScore.toLocaleString('ru-RU');
+
+            document.getElementById('penaltyDesc').innerHTML = `
+                ${reason}<br><br>
+                💥 Задействован аварийный байпас!<br>
+                💸 <strong>ШТРАФ: -2 000 PTS</strong><br>
+                Твой текущий счёт: <strong>${Game.totalScore.toLocaleString('ru-RU')} PTS</strong>
+            `;
+
+            const modal = document.getElementById('penaltyModal');
+            modal.style.display = 'flex';
+
+            // Включаем 2-секундную защиту от случайного нажатия
+            const btn = document.getElementById('btnPenaltyProceed');
+            applyClickProtection([btn], 2000);
+        }
+
+        function proceedAfterPenalty() {
+            document.getElementById('penaltyModal').style.display = 'none';
+            document.getElementById('alarmVignette').classList.remove('active');
+
+            if (Game.stage < 4) {
+                nextStage(Game.stage + 1);
+            } else {
+                triggerVictory();
+            }
+        }
+
+        /* =========================================================================
+           ФИНАЛЬНЫЙ ТРИУМФ И ОТПРАВКА НА СЕРВЕР
+           ========================================================================= */
+        async function triggerVictory() {
+            Game.isRunning = false;
+            haptic('success');
+
+            // Сохранение рекорда на сервер
+            const result = await saveScoreToBackend(Game.totalScore, Game.isExpert);
+
+            if (Game.totalScore > Game.bestScore) {
+                Game.bestScore = Game.totalScore;
+                document.getElementById('profileBestScore').innerText = `${Game.bestScore.toLocaleString('ru-RU')} PTS`;
+            }
+
+            document.getElementById('finalScoreText').innerText = `${Game.totalScore.toLocaleString('ru-RU')} PTS`;
+            document.getElementById('finalRankText').innerText = result?.rank ? `#${result.rank}` : 'В ТОПЕ!';
+
+            const modal = document.getElementById('victoryModal');
+            modal.style.display = 'flex';
+
+            // Включаем 2-секундную защиту от случайного нажатия на кнопки рестарта
+            const btn1 = document.getElementById('btnVictoryNormal');
+            const btn2 = document.getElementById('btnVictoryExpert');
+            applyClickProtection([btn1, btn2], 2000);
+        }
+
+        function restartWholeGame(expert = false) {
+            document.getElementById('victoryModal').style.display = 'none';
+            
+            Game.isExpert = expert;
+            Game.difficultyMult = expert ? 1.25 : 1.0;
+            Game.scoreMult = expert ? 2.5 : 1.0;
+
+            const modeBadge = document.getElementById('hudModeBadge');
+            if (expert) {
+                modeBadge.classList.add('active');
+            } else {
+                modeBadge.classList.remove('active');
+            }
+
+            Game.stage = 1;
+            Game.totalScore = 0;
+            Game.seconds = 0;
+            Game.ticks = 0;
+            Game.isRunning = false;
+            Game.s1 = { altitude: 0, thrust: 500, pitch: 500, hull: 1000, targetThrust: 600, targetPitch: 500 };
+            Game.s2 = { curChannel: 1, targetChannel: 4, hz: 600, energy: 800, packets: 0 };
+            Game.s3 = { oxygen: 650, water: 550, co2: 400, photons: 400, stomataOpen: false, timeLeft: 40 };
+            Game.s4 = { distance: 300, pressure: 500, angle: 47.5, integrity: 1000 };
+
+            document.getElementById('scoreDisplay').innerText = '0';
+            updateTimer();
+            switchTab('game', document.querySelectorAll('.nav-item')[0]);
+            startMission();
+        }
+
+        function spawnFloat(x, y, text, color) {
+            const b = document.createElement('div');
+            b.className = 'floating-bubble';
+            b.style.left = `${x || window.innerWidth / 2}px`;
+            b.style.top = `${y || window.innerHeight / 2}px`;
+            b.style.color = color;
+            b.innerText = text;
+            document.body.appendChild(b);
+            setTimeout(() => b.remove(), 800);
+        }
+
+        function switchTab(tabId, btn) {
+            haptic('selection');
+            document.querySelectorAll('.tab-view').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+            document.getElementById(`tab-${tabId}`).classList.add('active');
+            if (btn) btn.classList.add('active');
+        }
+
+        /* CANVAS ЗВЕЗДЫ */
+        const canvas = document.getElementById('space-bg');
+        const ctx = canvas.getContext('2d');
+        let stars = [];
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            stars = [];
+            for (let i = 0; i < 75; i++) {
+                stars.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    size: Math.random() * 1.8 + 0.5,
+                    speed: Math.random() * 0.4 + 0.1,
+                    alpha: Math.random(),
+                    isSpore: Math.random() > 0.65
+                });
+            }
+        }
+
+        function renderSpaceBackground() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            stars.forEach(star => {
+                star.y -= star.speed;
+                if (star.y < 0) star.y = canvas.height;
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+                ctx.fillStyle = star.isSpore ? `rgba(0, 255, 170, ${star.alpha})` : `rgba(255, 255, 255, ${star.alpha})`;
+                ctx.fill();
+            });
+            requestAnimationFrame(renderSpaceBackground);
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+        renderSpaceBackground();
+
+        // Загружаем профиль игрока из базы Durka и запускаем
+        loadProfileFromBackend();
+        startMission();
+    </script>
+</body>
+</html>
