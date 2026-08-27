@@ -1,10 +1,9 @@
-<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Биосфера: Космическая Одиссея</title>
-    <!-- Telegram WebApp SDK -->
+    <!-- Telegram -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         :root {
@@ -137,7 +136,8 @@
 
         .hud-metrics {
             display: flex;
-            gap: 12px;
+            align-items: center;
+            gap: 10px;
             text-align: right;
         }
 
@@ -148,13 +148,39 @@
         }
 
         .metric-val {
-            font-size: 15px;
+            font-size: 14px;
             font-weight: 800;
             font-variant-numeric: tabular-nums;
         }
 
         .metric-val.timer { color: var(--neon-cyan); }
         .metric-val.score { color: var(--neon-gold); }
+
+        /* Кнопка звука */
+        .sound-toggle-btn {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(0, 255, 170, 0.4);
+            color: var(--neon-green);
+            font-size: 14px;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .sound-toggle-btn:active {
+            transform: scale(0.9);
+        }
+
+        .sound-toggle-btn.muted {
+            border-color: rgba(255, 51, 102, 0.5);
+            color: var(--neon-red);
+            background: rgba(255, 51, 102, 0.1);
+        }
 
         /* КАРТОЧКА МОДУЛЯ */
         .stage-card {
@@ -189,8 +215,8 @@
         }
 
         .viewport-box {
-            width: 76px;
-            height: 76px;
+            width: 86px;
+            height: 86px;
             margin: 0 auto 6px;
             border-radius: 50%;
             border: 2px solid var(--neon-green);
@@ -202,6 +228,7 @@
             box-shadow: 0 0 25px rgba(0, 255, 170, 0.2);
             font-size: 38px;
             transition: all 0.25s ease;
+            overflow: hidden;
         }
 
         /* СПЕЦИАЛЬНЫЕ ПАНЕЛИ */
@@ -456,7 +483,7 @@
             display: flex;
             justify-content: space-around;
             padding: 8px 10px 14px;
-            z-index: 50;
+            z-index: 1100; /* Меню всегда поверх модалок */
         }
 
         .nav-item {
@@ -495,7 +522,13 @@
             align-items: center;
             justify-content: center;
             z-index: 1000;
-            padding: 20px;
+            padding: 20px 16px 75px; /* Защитный отступ снизу под нижнее меню */
+        }
+
+        /* Скрываем модалку и аварийную виньетку, если игрок перешел на другую вкладку (Журнал/Досье) */
+        body:has(#tab-game:not(.active)) .modal-overlay,
+        body:has(#tab-game:not(.active)) .alarm-vignette {
+            display: none !important;
         }
 
         .modal-card {
@@ -558,7 +591,6 @@
             margin-bottom: 0;
         }
 
-        /* Защита от миссклика (блокировка кнопок) */
         .btn-modal.btn-disabled {
             opacity: 0.5 !important;
             pointer-events: none !important;
@@ -574,24 +606,25 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
-        .leader-item {
-            background: var(--panel-bg);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 12px;
-            padding: 10px 12px;
+        /* Анимация раскалённой капсулы на этапе 5 */
+        .capsule-svg-wrapper {
+            width: 100%;
+            height: 100%;
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            margin-bottom: 8px;
+            justify-content: center;
+            position: relative;
         }
 
-        .leader-rank { font-weight: 800; font-size: 16px; width: 30px; color: var(--neon-amber); }
-        .rank-1 {
-            border: 1px solid rgba(255, 215, 0, 0.4);
-            background: radial-gradient(circle at left, rgba(255, 215, 0, 0.15) 0%, var(--panel-bg) 80%);
-            box-shadow: 0 0 20px rgba(255, 215, 0, 0.15);
+        .capsule-flame {
+            transform-origin: center bottom;
+            animation: flame-jitter 0.12s infinite alternate ease-in-out;
         }
-        .rank-1 .leader-rank { color: var(--neon-gold); font-size: 20px; }
+
+        @keyframes flame-jitter {
+            0% { transform: scaleY(0.95) scaleX(0.97); opacity: 0.85; }
+            100% { transform: scaleY(1.08) scaleX(1.03); opacity: 1; }
+        }
     </style>
 </head>
 <body>
@@ -610,7 +643,7 @@
                         👨‍🚀 <span id="pilotName">Космонавт</span>
                         <span class="hud-mode-badge" id="hudModeBadge">🔥 ОПЫТНЫЙ (x2.5)</span>
                     </div>
-                    <div class="hud-stage-badge" id="hudStageBadge">ЭТАП 1/4: ВЗЛЁТ</div>
+                    <div class="hud-stage-badge" id="hudStageBadge">ЭТАП 1/5: ВЗЛЁТ</div>
                 </div>
                 <div class="hud-metrics">
                     <div>
@@ -621,6 +654,7 @@
                         <div class="metric-label">Очки</div>
                         <div class="metric-val score" id="scoreDisplay">0</div>
                     </div>
+                    <button class="sound-toggle-btn" id="soundToggleBtn" onclick="toggleSoundMaster()" title="Звук">🔊</button>
                 </div>
             </div>
 
@@ -748,9 +782,9 @@
     <div class="modal-overlay" id="victoryModal">
         <div class="modal-card">
             <div style="font-size: 44px; margin-bottom: 6px;">🏆</div>
-            <div class="modal-title" style="color: var(--neon-gold)">СТЫКОВКА УСПЕШНА!</div>
+            <div class="modal-title" style="color: var(--neon-gold)">МИССИЯ ВЫПОЛНЕНА!</div>
             <div class="modal-desc" id="victoryDesc">
-                Ракета успешно пристыковалась к орбитальной станции «БИОФАК-1»!<br><br>
+                Капсула успешно завершила спуск и приземлилась в заданном секторе!<br><br>
                 📊 <strong>ИТОГОВЫЙ СЧЁТ:</strong> <span id="finalScoreText" style="color:var(--neon-gold); font-size:16px; font-weight:800;">0 PTS</span><br>
                 🥇 <strong>МЕСТО В ТОПЕ:</strong> <span id="finalRankText" style="color:var(--neon-green); font-size:16px; font-weight:800;">#—</span>
             </div>
@@ -777,9 +811,294 @@
 
     <script>
         /* =========================================================================
-           ⚙️ НАСТРОЙКА BACKEND API
+           🔊 ЗВУКОВОЙ ДВИЖОК SFX (ТОЛЬКО ЗВУКИ НАЖАТИЙ И СОБЫТИЙ)
            ========================================================================= */
-        const API_BASE_URL = "https://centered-faq-worship-conducted.trycloudflare.com";
+        const SoundFX = {
+            ctx: null,
+            isMuted: false,
+            masterGain: null,
+            sfxGain: null,
+            morseGain: null,
+            morseTimer: null,
+
+            init() {
+                if (this.ctx) return;
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) return;
+                this.ctx = new AudioCtx();
+
+                this.masterGain = this.ctx.createGain();
+                this.masterGain.gain.value = 1.0;
+                this.masterGain.connect(this.ctx.destination);
+
+                this.sfxGain = this.ctx.createGain();
+                this.sfxGain.gain.value = 0.7;
+                this.sfxGain.connect(this.masterGain);
+
+                this.morseGain = this.ctx.createGain();
+                this.morseGain.gain.value = 0.045; // Тихая азбука Морзе
+                this.morseGain.connect(this.masterGain);
+            },
+
+            resume() {
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            },
+
+            toggleMute() {
+                this.init();
+                this.resume();
+                this.isMuted = !this.isMuted;
+                if (this.masterGain) {
+                    this.masterGain.gain.value = this.isMuted ? 0 : 1.0;
+                }
+                const btn = document.getElementById('soundToggleBtn');
+                if (btn) {
+                    btn.innerText = this.isMuted ? '🔇' : '🔊';
+                    btn.classList.toggle('muted', this.isMuted);
+                }
+            },
+
+            /* 1. РАКЕТНЫЙ ФОРСАЖ / ДВИГАТЕЛЬ (0.2 СЕК) */
+            playThrust() {
+                if (this.isMuted) return;
+                this.init();
+                this.resume();
+                if (!this.ctx) return;
+
+                const t = this.ctx.currentTime;
+                const bufferSize = Math.floor(this.ctx.sampleRate * 0.22);
+                const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const output = noiseBuffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2 - 1;
+
+                const whiteNoise = this.ctx.createBufferSource();
+                whiteNoise.buffer = noiseBuffer;
+
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(700, t);
+                filter.frequency.exponentialRampToValueAtTime(120, t + 0.2);
+
+                const noiseGain = this.ctx.createGain();
+                noiseGain.gain.setValueAtTime(0.85, t);
+                noiseGain.gain.exponentialRampToValueAtTime(0.01, t + 0.2);
+
+                whiteNoise.connect(filter);
+                filter.connect(noiseGain);
+                noiseGain.connect(this.sfxGain);
+
+                const osc = this.ctx.createOscillator();
+                const oscGain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, t);
+                osc.frequency.exponentialRampToValueAtTime(35, t + 0.2);
+
+                oscGain.gain.setValueAtTime(0.7, t);
+                oscGain.gain.exponentialRampToValueAtTime(0.01, t + 0.2);
+
+                osc.connect(oscGain);
+                oscGain.connect(this.sfxGain);
+
+                whiteNoise.start(t);
+                osc.start(t);
+                osc.stop(t + 0.22);
+            },
+
+            /* 2. МЕХАНИЧЕСКИЙ ЗВУК ПОВОРОТА / СЕРВОПРИВОДА */
+            playMechanical() {
+                if (this.isMuted) return;
+                this.init();
+                this.resume();
+                if (!this.ctx) return;
+
+                const t = this.ctx.currentTime;
+                const osc1 = this.ctx.createOscillator();
+                const osc2 = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc1.type = 'sawtooth';
+                osc2.type = 'square';
+
+                osc1.frequency.setValueAtTime(180, t);
+                osc1.frequency.linearRampToValueAtTime(340, t + 0.08);
+                osc1.frequency.linearRampToValueAtTime(220, t + 0.15);
+
+                osc2.frequency.setValueAtTime(240, t);
+                osc2.frequency.linearRampToValueAtTime(480, t + 0.08);
+
+                gain.gain.setValueAtTime(0.3, t);
+                gain.gain.exponentialRampToValueAtTime(0.01, t + 0.16);
+
+                osc1.connect(gain);
+                osc2.connect(gain);
+                gain.connect(this.sfxGain);
+
+                osc1.start(t);
+                osc2.start(t);
+                osc1.stop(t + 0.16);
+                osc2.stop(t + 0.16);
+            },
+
+            /* 3. ЖУРЧАНИЕ И БУЛЬКАНЬЕ ВОДИЧКИ */
+            playWater() {
+                if (this.isMuted) return;
+                this.init();
+                this.resume();
+                if (!this.ctx) return;
+
+                const t = this.ctx.currentTime;
+                const freqs = [450, 720, 980, 560, 1150];
+
+                freqs.forEach((baseFreq, idx) => {
+                    const dropTime = t + (idx * 0.035);
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(baseFreq, dropTime);
+                    osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.7, dropTime + 0.06);
+
+                    gain.gain.setValueAtTime(0.35, dropTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, dropTime + 0.06);
+
+                    osc.connect(gain);
+                    gain.connect(this.sfxGain);
+
+                    osc.start(dropTime);
+                    osc.stop(dropTime + 0.07);
+                });
+            },
+
+            /* 4. ВСПЫШКА / ЗАРЯДКА */
+            playFlash() {
+                if (this.isMuted) return;
+                this.init();
+                this.resume();
+                if (!this.ctx) return;
+
+                const t = this.ctx.currentTime;
+
+                const osc = this.ctx.createOscillator();
+                const oscGain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(800, t);
+                osc.frequency.exponentialRampToValueAtTime(4600, t + 0.14);
+
+                oscGain.gain.setValueAtTime(0.12, t);
+                oscGain.gain.linearRampToValueAtTime(0.45, t + 0.14);
+                oscGain.gain.exponentialRampToValueAtTime(0.01, t + 0.18);
+
+                osc.connect(oscGain);
+                oscGain.connect(this.sfxGain);
+
+                const popOsc = this.ctx.createOscillator();
+                const popGain = this.ctx.createGain();
+                popOsc.type = 'triangle';
+                popOsc.frequency.setValueAtTime(3400, t + 0.13);
+                popOsc.frequency.exponentialRampToValueAtTime(300, t + 0.28);
+
+                popGain.gain.setValueAtTime(0, t);
+                popGain.gain.setValueAtTime(0.6, t + 0.13);
+                popGain.gain.exponentialRampToValueAtTime(0.01, t + 0.28);
+
+                popOsc.connect(popGain);
+                popGain.connect(this.sfxGain);
+
+                osc.start(t);
+                osc.stop(t + 0.19);
+                popOsc.start(t + 0.13);
+                popOsc.stop(t + 0.29);
+            },
+
+            /* 5. ПНЕВМО-КЛАПАН / ВПРЫСК ХЛАДАГЕНТА */
+            playValve() {
+                if (this.isMuted) return;
+                this.init();
+                this.resume();
+                if (!this.ctx) return;
+
+                const t = this.ctx.currentTime;
+                const bufferSize = Math.floor(this.ctx.sampleRate * 0.18);
+                const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const output = noiseBuffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2 - 1;
+
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = noiseBuffer;
+
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'bandpass';
+                filter.frequency.setValueAtTime(3200, t);
+                filter.Q.setValueAtTime(4, t);
+
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(0.55, t);
+                gain.gain.exponentialRampToValueAtTime(0.01, t + 0.18);
+
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.sfxGain);
+
+                noise.start(t);
+            },
+
+            /* 6. ТИХАЯ АЗБУКА МОРЗЕ НА ФОНЕ (ЭТАП 2) */
+            startMorseAmbiance() {
+                if (this.morseTimer) return;
+                this.init();
+                this.resume();
+
+                const morsePattern = [1,0,1,0,1,1,1,0,1,0,0,0,1,1,1,0,1,1,1,0,1,0,0,0];
+                let idx = 0;
+
+                this.morseTimer = setInterval(() => {
+                    if (this.isMuted || !this.ctx) return;
+                    if (morsePattern[idx % morsePattern.length] === 1) {
+                        const t = this.ctx.currentTime;
+                        const osc = this.ctx.createOscillator();
+                        const g = this.ctx.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(750 + (Math.random() * 60 - 30), t);
+
+                        g.gain.setValueAtTime(0.05, t);
+                        g.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+
+                        osc.connect(g);
+                        g.connect(this.morseGain);
+
+                        osc.start(t);
+                        osc.stop(t + 0.08);
+                    }
+                    idx++;
+                }, 90);
+            },
+
+            stopMorseAmbiance() {
+                if (this.morseTimer) {
+                    clearInterval(this.morseTimer);
+                    this.morseTimer = null;
+                }
+            }
+        };
+
+        function toggleSoundMaster() {
+            SoundFX.toggleMute();
+        }
+
+        // Авто-инициализация звука при первом тапе
+        window.addEventListener('pointerdown', () => {
+            SoundFX.init();
+            SoundFX.resume();
+        }, { once: true });
+
+
+
+        /* =========================================================================
+           ⚙️ НАСТРОЙКА API
+           ========================================================================= */
+        const API_BASE_URL = window.location.origin;
 
         const tg = window.Telegram?.WebApp;
         if (tg) { 
@@ -796,8 +1115,9 @@
             } catch (e) {}
         }
 
+
         /* =========================================================================
-           ИНТЕГРАЦИЯ С БЭКЕНДОМ DURKA
+           ИНТЕГРАЦИЯ С БЭКЕНДОМ
            ========================================================================= */
         async function loadProfileFromBackend() {
             if (!tg?.initData) return;
@@ -866,7 +1186,10 @@
             s3: { oxygen: 650, water: 550, co2: 400, photons: 400, stomataOpen: false, timeLeft: 40 },
 
             // ЭТАП 4: СТЫКОВКА
-            s4: { distance: 300, pressure: 500, angle: 47.5, integrity: 1000 }
+            s4: { distance: 300, pressure: 500, angle: 47.5, integrity: 1000 },
+
+            // ЭТАП 5: ПОСАДКА И ВХОД В АТМОСФЕРУ
+            s5: { altitude: 80, angle: 22.0, temp: 250, shieldHull: 1000 }
         };
 
         let mainLoop = null;
@@ -877,54 +1200,95 @@
         const STAGE_BRIEFINGS = {
             1: {
                 icon: "🚀",
-                title: "ЭТАП 1: СТАРТ И ВЗЛЁТ",
+                title: "ЭТАП 1/5: СТАРТ И ВЗЛЁТ",
                 desc: "Выход ракеты на суборбитальную траекторию (100 км):",
                 details: `
                     🎯 <b>ЦЕЛЬ:</b> Достичь высоты 100 км.<br><br>
                     🕹 <b>КАК УПРАВЛЯТЬ:</b><br>
                     • Жми <b>«🔥 Форсаж тяги»</b>, чтобы тяга не упала до нуля.<br>
-                    • Кнопками <b>«◀ Крен влево»</b> и <b>«Крен вправо ▶»</b> держи ракету в зеленом целевом коридоре.<br>
+                    • Кнопками <b>«◀ Крен / Крен ▶»</b> держи ракету в целевом коридоре.<br>
                     ⚠️ <i>Выход за пределы коридора разрушает обшивку ракеты!</i>
                 `
             },
             2: {
                 icon: "📡",
-                title: "ЭТАП 2: БЛОК СВЯЗИ",
-                desc: "Настройка несущей частоты и энергопитания бортовой антенны:",
+                title: "ЭТАП 2/5: БЛОК СВЯЗИ",
+                desc: "Настройка несущей частоты и энергопитания антенны:",
                 details: `
                     🎯 <b>ЦЕЛЬ:</b> Передать 3 пакета данных на станцию.<br><br>
                     🕹 <b>КАК УПРАВЛЯТЬ:</b><br>
                     • Кнопками <b>Канал ±1</b> найди целевой канал (CH-X).<br>
                     • Жми <b>«📶 Удержать частоту»</b>, чтобы частота была >35%.<br>
-                    • ⚡ <b>КРИТИЧНО:</b> Энергия тает со скоростью <b>-10%/сек</b>! Регулярно жми <b>«⚡ Подпитка энергоблока»</b>, чтобы не обесточить антенну!
+                    • ⚡ <b>КРИТИЧНО:</b> Энергия падает со скоростью <b>-10%/сек</b>! Регулярно жми <b>«⚡ Подпитка энергоблока»</b>!
                 `
             },
             3: {
                 icon: "🌿",
-                title: "ЭТАП 3: ОРАНЖЕРЕЯ СЖО",
+                title: "ЭТАП 3/5: ОРАНЖЕРЕЯ СЖО",
                 desc: "Стабилизация биосферы и газообмена (40 секунд):",
                 details: `
                     🎯 <b>ЦЕЛЬ:</b> Продержаться 40 секунд и не угробить экипаж.<br><br>
                     🕹 <b>КАК УПРАВЛЯТЬ:</b><br>
-                    • 🫁 <b>«🌿 Клапан устьиц»:</b> Включает фотосинтез (производит кислород O₂).<br>
+                    • 🫁 <b>«🌿 Клапан устьиц»:</b> Включает фотосинтез (производит O₂).<br>
                     • 💧 <b>«💧 Подкачка»:</b> Добавляет воду гидропонике.<br>
                     • ⚡ <b>«⚡ Импульс фотонов»:</b> Дает свет растениям.<br>
-                    🚨 <b>ОПАСНОСТЬ:</b> При <b>100% воды</b> гидропоника тонет, а при <b>100% кислорода</b> происходит взрыв! Не перекачивай!
+                    🚨 <b>ОПАСНОСТЬ:</b> При <b>100% воды</b> оранжерея тонет, а при <b>100% O₂</b> взрывается!
                 `
             },
             4: {
                 icon: "🛰️",
-                title: "ЭТАП 4: СТЫКОВКА ШЛЮЗА",
-                desc: "Финальное сближение с орбитальной станцией «БИОФАК-1»:",
+                title: "ЭТАП 4/5: СТЫКОВКА ШЛЮЗА",
+                desc: "Сближение с орбитальным модулем станции:",
                 details: `
                     🎯 <b>ЦЕЛЬ:</b> Сократить дистанцию с 300 до 0 метров.<br><br>
                     🕹 <b>КАК УПРАВЛЯТЬ:</b><br>
-                    • Кнопками <b>«◀ Угол / Угол ▶»</b> удерживай корабль СТРОГО в коридоре <b>40.0° – 55.0°</b>.<br>
-                    • Жми <b>«💨 Стабилизировать давление»</b>, если оно скачет.<br>
-                    ⚠️ <i>Любое отклонение угла сминает стыковочный шлюз!</i>
+                    • Кнопками <b>«◀ Угол / Угол ▶»</b> удерживай корабль строго в коридоре <b>40.0° – 55.0°</b>.<br>
+                    • Жми <b>«💨 Стабилизировать давление»</b> при скачках.<br>
+                    ⚠️ <i>Отклонение угла деформирует стыковочный шлюз!</i>
+                `
+            },
+            5: {
+                icon: "🔥",
+                title: "ЭТАП 5/5: ВХОД В АТМОСФЕРУ И ПОСАДКА",
+                desc: "Спуск капсулы через плотные слои раскалённой плазмы (80 км -> 0 км):",
+                details: `
+                    🎯 <b>ЦЕЛЬ:</b> Пройти атмосферный слой и совершить посадку.<br><br>
+                    🕹 <b>КАК УПРАВЛЯТЬ:</b><br>
+                    • 🧭 <b>Угол входа постоянно сбивается!</b> Держи тангаж строго в зелёном коридоре <b>19.0° – 25.0°</b>.<br>
+                    • 🌡️ <b>Щит раскаляется мгновенно!</b> Регулярно жми <b>«❄️ Впрыск хладагента»</b>, чтобы сбивать опасную температуру!<br>
+                    🚨 <i>Перегрев выше 900°C или выход из угла уничтожит капсулу!</i>
                 `
             }
         };
+
+        /* =========================================================================
+           ЗАЩИТА ОТ МИССКЛИКА
+           ========================================================================= */
+        function applyClickProtection(buttons, durationMs = 1500) {
+            const originalTexts = buttons.map(b => b.innerText);
+            
+            buttons.forEach(b => {
+                b.classList.add('btn-disabled');
+            });
+
+            const startTime = Date.now();
+            const interval = setInterval(() => {
+                const elapsed = Date.now() - startTime;
+                const remaining = Math.max(0, (durationMs - elapsed) / 1000);
+
+                if (remaining > 0) {
+                    buttons.forEach(b => {
+                        b.innerText = `⏳ Готовность (${remaining.toFixed(1)}с)...`;
+                    });
+                } else {
+                    clearInterval(interval);
+                    buttons.forEach((b, idx) => {
+                        b.classList.remove('btn-disabled');
+                        b.innerText = originalTexts[idx];
+                    });
+                }
+            }, 100);
+        }
 
         function showStageBriefing(stageNum) {
             Game.isRunning = false;
@@ -934,39 +1298,18 @@
             document.getElementById('briefingDesc').innerText = b.desc;
             document.getElementById('briefingDetails').innerHTML = b.details;
 
+            const btn = document.getElementById('btnStartStage');
+            btn.innerText = '🚀 ПОЕХАЛИ! В БОЙ';
             document.getElementById('stageBriefingModal').style.display = 'flex';
+
+            applyClickProtection([btn], 1500);
         }
 
         function startCurrentStage() {
             document.getElementById('stageBriefingModal').style.display = 'none';
             haptic('medium');
+            SoundFX.playFlash();
             Game.isRunning = true;
-        }
-
-        /* =========================================================================
-           ЗАЩИТА ОТ МИССКЛИКА (2 СЕКУНДЫ КУЛДАУНА)
-           ========================================================================= */
-        function applyClickProtection(buttons, duration = 2000) {
-            const originalTexts = buttons.map(b => b.innerText);
-            
-            buttons.forEach(b => {
-                b.classList.add('btn-disabled');
-                b.innerText = `⏳ Защита (2с)...`;
-            });
-
-            let timeLeft = 2;
-            const countdown = setInterval(() => {
-                timeLeft--;
-                if (timeLeft > 0) {
-                    buttons.forEach(b => { b.innerText = `⏳ Защита (${timeLeft}с)...`; });
-                } else {
-                    clearInterval(countdown);
-                    buttons.forEach((b, i) => {
-                        b.classList.remove('btn-disabled');
-                        b.innerText = originalTexts[i];
-                    });
-                }
-            }, 1000);
         }
 
         function startMission() {
@@ -977,7 +1320,7 @@
         }
 
         /* =========================================================================
-           ОБЩИЙ ТАКТ ИГРЫ (100 ms)
+           ОБЩИЙ ТАКТ ИГРЫ
            ========================================================================= */
         function gameTick() {
             if (!Game.isRunning) return;
@@ -992,6 +1335,7 @@
             else if (Game.stage === 2) tickStage2();
             else if (Game.stage === 3) tickStage3();
             else if (Game.stage === 4) tickStage4();
+            else if (Game.stage === 5) tickStage5();
         }
 
         function updateTimer() {
@@ -1066,12 +1410,14 @@
         function s1ThrustBoost(e) {
             Game.s1.thrust = Math.min(1000, Game.s1.thrust + 140);
             haptic('medium');
+            SoundFX.playThrust();
             spawnFloat(e.clientX, e.clientY, '+ТЯГА 🚀', 'var(--neon-green)');
         }
 
         function s1PitchAdjust(dir, e) {
             Game.s1.pitch = Math.max(0, Math.min(1000, Game.s1.pitch + dir * 130));
             haptic('selection');
+            SoundFX.playMechanical();
             spawnFloat(e.clientX, e.clientY, dir > 0 ? '▶ ВПРАВО' : '◀ ВЛЕВО', 'var(--neon-cyan)');
         }
 
@@ -1099,6 +1445,7 @@
                 if (Game.ticks % 30 === 0) {
                     s2.packets++;
                     haptic('success');
+                    SoundFX.playFlash();
                     spawnFloat(window.innerWidth/2, window.innerHeight/2, `📡 ПАКЕТ ${s2.packets}/3 ОТПРАВЛЕН!`, 'var(--neon-green)');
                 }
             }
@@ -1137,17 +1484,20 @@
         function s2ChangeChannel(dir) {
             Game.s2.curChannel = Math.max(1, Math.min(7, Game.s2.curChannel + dir));
             haptic('selection');
+            SoundFX.playMechanical();
         }
 
         function s2HoldHz(e) {
             Game.s2.hz = Math.min(1000, Game.s2.hz + 180);
             haptic('medium');
+            SoundFX.playValve();
             spawnFloat(e.clientX, e.clientY, '+18% HZ 📶', 'var(--neon-cyan)');
         }
 
         function s2RechargeEnergy(e) {
             Game.s2.energy = Math.min(1000, Game.s2.energy + 250);
             haptic('medium');
+            SoundFX.playFlash();
             spawnFloat(e.clientX, e.clientY, '+25% ЭНЕРГИЯ ⚡', 'var(--neon-purple)');
         }
 
@@ -1220,18 +1570,21 @@
         function s3PumpWater(e) {
             Game.s3.water = Game.s3.water + 130;
             haptic('medium');
+            SoundFX.playWater();
             spawnFloat(e.clientX, e.clientY, '+13% 💧', 'var(--neon-cyan)');
         }
 
         function s3PulsePhotons(e) {
             Game.s3.photons = Math.min(1000, Game.s3.photons + 260);
             haptic('medium');
+            SoundFX.playFlash();
             spawnFloat(e.clientX, e.clientY, '+26% ⚡', 'var(--neon-purple)');
         }
 
         function s3ToggleStomata(e) {
             Game.s3.stomataOpen = !Game.s3.stomataOpen;
             haptic('selection');
+            SoundFX.playValve();
             const btn = document.getElementById('btnStomata');
             const label = document.getElementById('stomataLabel');
             if (Game.s3.stomataOpen) {
@@ -1289,19 +1642,130 @@
             if (s4.integrity <= 0) {
                 triggerStageFailure('🚨 АВАРИЯ СТЫКОВКИ! Шлюз смят из-за выхода из углового коридора (40°-55°)!');
             } else if (s4.distance <= 0) {
-                triggerVictory();
+                nextStage(5);
             }
         }
 
         function s4AdjustAngle(dir) {
             Game.s4.angle += dir * 2.2;
             haptic('selection');
+            SoundFX.playMechanical();
         }
 
         function s4StabilizePressure(e) {
             Game.s4.pressure = 500;
             haptic('medium');
+            SoundFX.playValve();
             spawnFloat(e.clientX, e.clientY, '💨 Давление: НОРМА', 'var(--neon-cyan)');
+        }
+
+        /* =========================================================================
+           ЭТАП 5: ПОСАДКА И ВХОД В АТМОСФЕРУ
+           ========================================================================= */
+        function tickStage5() {
+            const s5 = Game.s5;
+            const diff = Game.difficultyMult;
+
+            s5.altitude = Math.max(0, s5.altitude - (0.45 * diff));
+
+            s5.angle += (Math.random() * 2.2 - 1.1) * diff;
+
+            const angleOk = s5.angle >= 19.0 && s5.angle <= 25.0;
+
+            let tempDelta = (7.5 * diff);
+            if (!angleOk) {
+                tempDelta += (14.0 * diff);
+                s5.shieldHull = Math.max(0, s5.shieldHull - (14 * diff));
+            } else {
+                addScore(40);
+            }
+
+            s5.temp = Math.max(0, Math.min(1000, s5.temp + tempDelta));
+
+            document.getElementById('stageStatusText').innerText = `ВЫСОТА СПУСКА: ${Math.floor(s5.altitude)} / 80 КМ`;
+
+            const cardAngle = document.getElementById('s5CardAngle');
+            const cardTemp = document.getElementById('s5CardTemp');
+            const valAngle = document.getElementById('s5ValAngle');
+            const valTemp = document.getElementById('s5ValTemp');
+
+            if (cardAngle && cardTemp) {
+                cardAngle.className = `target-item-card ${angleOk ? 'ok' : 'warn'}`;
+                cardTemp.className = `target-item-card ${s5.temp < 800 ? 'ok' : 'warn'}`;
+                valAngle.innerHTML = `<b>${s5.angle.toFixed(1)}°</b> [19.0°-25.0°] ${angleOk ? '✅' : '🚨 СНОС'}`;
+                const tempC = Math.round(s5.temp * 2.2);
+                valTemp.innerHTML = `<b>${tempC}°C</b> (${Math.round(s5.temp/10)}%) ${s5.temp < 800 ? '✅' : '🔥 ПЕРЕГРЕВ'}`;
+            }
+
+            const heatRatio = s5.temp / 1000;
+            updateCapsuleVisual(heatRatio, s5.angle);
+
+            setGauge(1, '🎯 Высота', Math.round(((80 - s5.altitude)/80)*1000), 'fill-green');
+            setGauge(2, `🔥 Температура (${Math.round(s5.temp*2.2)}°C)`, s5.temp, s5.temp > 750 ? 'fill-danger' : 'fill-amber');
+            const angleGauge = Math.max(0, Math.min(1000, Math.round(((s5.angle - 15) / 15) * 1000)));
+            setGauge(3, `🧭 Тангаж (${s5.angle.toFixed(1)}°)`, angleGauge, angleOk ? 'fill-cyan' : 'fill-danger');
+            setGauge(4, '🛡️ Теплозащита', s5.shieldHull, s5.shieldHull < 400 ? 'fill-danger' : 'fill-purple');
+
+            document.getElementById('alarmVignette').classList.toggle('active', !angleOk || s5.temp > 800 || s5.shieldHull < 350);
+
+            if (s5.temp >= 1000) {
+                triggerStageFailure('🔥 ТЕПЛОВОЙ ПРОГАР! Щит испарился из-за чудовищного перегрева плазмы!');
+            } else if (s5.shieldHull <= 0) {
+                triggerStageFailure('🚨 РАЗРУШЕНИЕ КАПСУЛЫ! Конструкция не выдержала динамического удара атмосферы!');
+            } else if (s5.altitude <= 0) {
+                triggerVictory();
+            }
+        }
+
+        function s5AdjustAngle(dir) {
+            Game.s5.angle += dir * 1.5;
+            haptic('selection');
+            SoundFX.playMechanical();
+        }
+
+        function s5InjectCoolant(e) {
+            Game.s5.temp = Math.max(0, Game.s5.temp - 260);
+            haptic('medium');
+            SoundFX.playValve();
+            spawnFloat(e.clientX, e.clientY, '❄️ -570°C ХЛАДАГЕНТ', 'var(--neon-cyan)');
+        }
+
+        function updateCapsuleVisual(heatRatio, angle) {
+            const shield = document.getElementById('capsuleShield');
+            const flame = document.getElementById('capsuleFlame');
+            const hull = document.getElementById('capsuleHull');
+            const container = document.getElementById('viewportIcon');
+            if (!shield || !flame || !hull) return;
+
+            let shieldColor, flameColor, glowSize, flameOpacity;
+            if (heatRatio < 0.35) {
+                shieldColor = '#556677';
+                flameColor = '#ff6600';
+                glowSize = 4;
+                flameOpacity = 0.2 + heatRatio;
+            } else if (heatRatio < 0.75) {
+                shieldColor = '#ff4400';
+                flameColor = '#ff2200';
+                glowSize = 12;
+                flameOpacity = 0.8;
+            } else {
+                shieldColor = '#fff5cc';
+                flameColor = '#ff0055';
+                glowSize = 22;
+                flameOpacity = 1.0;
+            }
+
+            shield.setAttribute('fill', shieldColor);
+            flame.setAttribute('fill', flameColor);
+            flame.setAttribute('opacity', flameOpacity);
+
+            container.style.boxShadow = `0 0 ${glowSize * 1.8}px ${flameColor}`;
+            container.style.borderColor = heatRatio > 0.75 ? 'var(--neon-red)' : 'var(--neon-green)';
+
+            const jitterX = (Math.random() * 4 - 2) * (heatRatio + 0.3);
+            const jitterY = (Math.random() * 4 - 2) * (heatRatio + 0.3);
+            const rotOffset = (angle - 22.0) * 1.5;
+            document.getElementById('capsuleGraphic').style.transform = `translate(${jitterX}px, ${jitterY}px) rotate(${rotOffset}deg)`;
         }
 
         /* =========================================================================
@@ -1325,11 +1789,17 @@
             const deck = document.getElementById('controlsDeck');
             const specialPanel = document.getElementById('specialStagePanel');
 
+            if (stage === 2) {
+                SoundFX.startMorseAmbiance();
+            } else {
+                SoundFX.stopMorseAmbiance();
+            }
+
             if (stage === 1) {
-                badge.innerText = 'ЭТАП 1/4: ВЗЛЁТ';
+                badge.innerText = 'ЭТАП 1/5: ВЗЛЁТ';
                 title.innerText = '🚀 СТАРТОВЫЙ МОДУЛЬ: ВЗЛЁТ';
                 desc.innerText = 'Удерживай тягу и крен в безопасном коридоре!';
-                icon.innerText = '🚀';
+                icon.innerHTML = '🚀';
 
                 specialPanel.innerHTML = `
                     <div class="highlight-box">
@@ -1355,10 +1825,10 @@
                     </div>
                 `;
             } else if (stage === 2) {
-                badge.innerText = 'ЭТАП 2/4: СВЯЗЬ';
+                badge.innerText = 'ЭТАП 2/5: СВЯЗЬ';
                 title.innerText = '📡 БЛОК СВЯЗИ И ЭНЕРГОСЕТИ';
                 desc.innerText = 'Ищи канал, держи частоту и не допускай разряда батарей (-10%/с)!';
-                icon.innerText = '📡';
+                icon.innerHTML = '📡';
 
                 specialPanel.innerHTML = `
                     <div class="highlight-box" style="border-color: rgba(0, 255, 170, 0.4);">
@@ -1391,10 +1861,10 @@
                     <button class="action-btn" onclick="s2HoldHz(event)"><span>📶 Удержать частоту</span><span style="color:var(--neon-cyan)">+180 Hz</span></button>
                 `;
             } else if (stage === 3) {
-                badge.innerText = 'ЭТАП 3/4: БИО-СЖО';
+                badge.innerText = 'ЭТАП 3/5: БИО-СЖО';
                 title.innerText = '🌿 ОРАНЖЕРЕЯ ЖИЗНЕОБЕСПЕЧЕНИЯ';
                 desc.innerText = 'Не допускай 100% воды (затопление) и 100% кислорода (взрыв)!';
-                icon.innerText = '🌱';
+                icon.innerHTML = '🌱';
 
                 specialPanel.innerHTML = `
                     <div class="bio-warning-badge" id="s3WarnWater" style="background:rgba(0,229,255,0.25); color:var(--neon-cyan); border:1px solid var(--neon-cyan);">
@@ -1414,17 +1884,17 @@
                     </div>
                 `;
             } else if (stage === 4) {
-                badge.innerText = 'ЭТАП 4/4: СТЫКОВКА';
+                badge.innerText = 'ЭТАП 4/5: СТЫКОВКА';
                 title.innerText = '🛰️ СТЫКОВОЧНЫЙ ШЛЮЗ';
                 desc.innerText = 'Удерживай угол строго от 40.0° до 55.0° и давление в норме!';
-                icon.innerText = '🛰️';
+                icon.innerHTML = '🛰️';
 
                 specialPanel.innerHTML = `
                     <div class="highlight-box" style="border-color: rgba(189, 0, 255, 0.4);">
                         <div class="highlight-box-title" style="color: var(--neon-purple)">🎯 БЕЗОПАСНЫЙ СТЫКОВОЧНЫЙ КОРИДОР</div>
                         <div class="targets-grid">
                             <div class="target-item-card ok" id="s4CardAngle">
-                                <div style="color:var(--neon-purple)">🧭 УГОЛ КОРРИДОРА</div>
+                                <div style="color:var(--neon-purple)">🧭 УГОЛ КОРИДОРА</div>
                                 <div class="target-val" id="s4ValAngle">47.5° [40.0°-55.0°] ✅</div>
                             </div>
                             <div class="target-item-card ok" id="s4CardPress">
@@ -1442,29 +1912,78 @@
                         <button class="action-btn" onclick="s4AdjustAngle(1)"><span>Угол +2.2° ▶</span></button>
                     </div>
                 `;
+            } else if (stage === 5) {
+                badge.innerText = 'ЭТАП 5/5: ПОСАДКА';
+                title.innerText = '🔥 ПОСАДКА: ВХОД В АТМОСФЕРУ';
+                desc.innerText = 'Удерживай угол входа 19°-25° и сбивай критический перегрев щита!';
+
+                icon.innerHTML = `
+                    <div class="capsule-svg-wrapper" id="capsuleGraphic">
+                        <svg width="68" height="68" viewBox="0 0 100 100">
+                            <!-- Пламя и ударная волна плазмы под щитом -->
+                            <path class="capsule-flame" id="capsuleFlame" d="M 12 70 Q 50 105 88 70 Q 50 82 12 70 Z" fill="#ff4400" opacity="0.6"/>
+                            <!-- Корпус капсулы (плоский верх, конусные стенки, широкое дно) -->
+                            <path id="capsuleHull" d="M 36 28 L 64 28 L 82 68 Q 50 74 18 68 Z" fill="#2d3748" stroke="#1a202c" stroke-width="2"/>
+                            <!-- Верхний плоский стыковочно-парашютный люк -->
+                            <rect x="38" y="24" width="24" height="5" rx="2" fill="#718096"/>
+                            <!-- Центральный иллюминатор -->
+                            <circle cx="50" cy="44" r="8" fill="#00e5ff" stroke="#000" stroke-width="1.5"/>
+                            <!-- Широкий сегментированный теплозащитный щит -->
+                            <path id="capsuleShield" d="M 18 68 Q 50 78 82 68 Q 50 84 18 68 Z" fill="#4a5568" stroke="#000" stroke-width="1"/>
+                        </svg>
+                    </div>
+                `;
+
+                specialPanel.innerHTML = `
+                    <div class="highlight-box" style="border-color: rgba(255, 51, 102, 0.45);">
+                        <div class="highlight-box-title" style="color: var(--neon-red)">🔥 ТЕПЛОВОЙ БАРЬЕР И АЭРОДИНАМИКА</div>
+                        <div class="targets-grid">
+                            <div class="target-item-card ok" id="s5CardAngle">
+                                <div style="color:var(--neon-cyan)">🧭 УГОЛ ТАНГАЖА</div>
+                                <div class="target-val" id="s5ValAngle">22.0° [19.0°-25.0°] ✅</div>
+                            </div>
+                            <div class="target-item-card ok" id="s5CardTemp">
+                                <div style="color:var(--neon-amber)">🌡️ НАГРЕВ ЩИТА</div>
+                                <div class="target-val" id="s5ValTemp">550°C (25%) ✅</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                deck.innerHTML = `
+                    <button class="action-btn" onclick="s5InjectCoolant(event)" style="border-color:var(--neon-cyan); background:rgba(0,229,255,0.15)">
+                        <span>❄️ Впрыск хладагента</span><span style="color:var(--neon-cyan); font-weight:800">-570°C ЩИТ</span>
+                    </button>
+                    <div class="btn-row">
+                        <button class="action-btn" onclick="s5AdjustAngle(-1)"><span>◀ Тангаж -1.5°</span></button>
+                        <button class="action-btn" onclick="s5AdjustAngle(1)"><span>Тангаж +1.5° ▶</span></button>
+                    </div>
+                `;
             }
         }
 
         function nextStage(targetStage) {
             haptic('success');
+            SoundFX.playFlash();
             spawnFloat(window.innerWidth/2, window.innerHeight/2, '✅ ОТСЕК СТАБИЛИЗИРОВАН!', 'var(--neon-green)');
             setupStageUI(targetStage);
             showStageBriefing(targetStage);
         }
 
         /* =========================================================================
-           СИСТЕМА ШТРАФА -2000 И АВАРИЙНОГО ПРОХОДА
+           СИСТЕМА ШТРАФА
            ========================================================================= */
         function triggerStageFailure(reason) {
             Game.isRunning = false;
             haptic('error');
+            SoundFX.stopMorseAmbiance();
 
             Game.totalScore = Math.max(0, Game.totalScore - 2000);
             document.getElementById('scoreDisplay').innerText = Game.totalScore.toLocaleString('ru-RU');
 
             document.getElementById('penaltyDesc').innerHTML = `
                 ${reason}<br><br>
-                💥 Задействован аварийный байпас!<br>
+                💥 Задействован аварийный байпас спасения!<br>
                 💸 <strong>ШТРАФ: -2 000 PTS</strong><br>
                 Твой текущий счёт: <strong>${Game.totalScore.toLocaleString('ru-RU')} PTS</strong>
             `;
@@ -1472,7 +1991,6 @@
             const modal = document.getElementById('penaltyModal');
             modal.style.display = 'flex';
 
-            // Включаем 2-секундную защиту от случайного нажатия
             const btn = document.getElementById('btnPenaltyProceed');
             applyClickProtection([btn], 2000);
         }
@@ -1481,7 +1999,7 @@
             document.getElementById('penaltyModal').style.display = 'none';
             document.getElementById('alarmVignette').classList.remove('active');
 
-            if (Game.stage < 4) {
+            if (Game.stage < 5) {
                 nextStage(Game.stage + 1);
             } else {
                 triggerVictory();
@@ -1489,13 +2007,14 @@
         }
 
         /* =========================================================================
-           ФИНАЛЬНЫЙ ТРИУМФ И ОТПРАВКА НА СЕРВЕР
+           ОТПРАВКА НА СЕРВЕР
            ========================================================================= */
         async function triggerVictory() {
             Game.isRunning = false;
             haptic('success');
+            SoundFX.stopMorseAmbiance();
+            SoundFX.playFlash();
 
-            // Сохранение рекорда на сервер
             const result = await saveScoreToBackend(Game.totalScore, Game.isExpert);
 
             if (Game.totalScore > Game.bestScore) {
@@ -1509,7 +2028,6 @@
             const modal = document.getElementById('victoryModal');
             modal.style.display = 'flex';
 
-            // Включаем 2-секундную защиту от случайного нажатия на кнопки рестарта
             const btn1 = document.getElementById('btnVictoryNormal');
             const btn2 = document.getElementById('btnVictoryExpert');
             applyClickProtection([btn1, btn2], 2000);
@@ -1538,6 +2056,7 @@
             Game.s2 = { curChannel: 1, targetChannel: 4, hz: 600, energy: 800, packets: 0 };
             Game.s3 = { oxygen: 650, water: 550, co2: 400, photons: 400, stomataOpen: false, timeLeft: 40 };
             Game.s4 = { distance: 300, pressure: 500, angle: 47.5, integrity: 1000 };
+            Game.s5 = { altitude: 80, angle: 22.0, temp: 250, shieldHull: 1000 };
 
             document.getElementById('scoreDisplay').innerText = '0';
             updateTimer();
@@ -1558,13 +2077,13 @@
 
         function switchTab(tabId, btn) {
             haptic('selection');
+            SoundFX.playMechanical();
             document.querySelectorAll('.tab-view').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
             document.getElementById(`tab-${tabId}`).classList.add('active');
             if (btn) btn.classList.add('active');
         }
 
-        /* CANVAS ЗВЕЗДЫ */
         const canvas = document.getElementById('space-bg');
         const ctx = canvas.getContext('2d');
         let stars = [];
@@ -1602,7 +2121,6 @@
         resizeCanvas();
         renderSpaceBackground();
 
-        // Загружаем профиль игрока из базы Durka и запускаем
         loadProfileFromBackend();
         startMission();
     </script>
