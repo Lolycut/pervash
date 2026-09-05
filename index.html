@@ -786,8 +786,8 @@
             <div id="leaderboardList">
                 <div class="stage-card" style="text-align: center; padding: 24px 16px;">
                     <div style="font-size: 32px; margin-bottom: 10px;">📊</div>
-                    <div style="font-size: 15px; color: var(--text-main); font-weight: 800; margin-bottom: 6px;">Синхронизация с ботом</div>
-                    <div style="font-size: 13px; color: var(--text-muted); line-height: 1.4;">Актуальный топ-10 пилотов со всей информацией доступен прямо в Telegram по кнопке «🏆 Таблица лидеров»!</div>
+                    <div style="font-size: 15px; color: var(--text-main); font-weight: 800; margin-bottom: 6px;">Загрузка данных...</div>
+                    <div style="font-size: 13px; color: var(--text-muted); line-height: 1.4;">Связываемся со станцией «БИОФАК-1»...</div>
                 </div>
             </div>
         </div>
@@ -878,12 +878,9 @@
 
     <script>
         /* =========================================================================
-           =========================================================================
-           🔗 [НАСТРОЙКА БЭКЕНДА / API URL] <--- МЕНЯТЬ ССЫЛКУ ТУТ!
-           =========================================================================
+           🔗 [НАСТРОЙКА БЭКЕНДА / API URL]
            ========================================================================= */
-        const API_BASE_URL = window.location.origin; // ССЫЛКА НА БЭКЕНД (НАПРИМЕР: "https://your-bot-domain.com")
-
+        const API_BASE_URL = window.location.origin;
 
         /* =========================================================================
            ⚙️ НАСТРОЙКА И ТАКТИЛЬНЫЙ ОТКЛИК TELEGRAM
@@ -892,6 +889,7 @@
         if (tg) { 
             tg.expand(); 
             tg.ready(); 
+            try { tg.requestFullscreen(); } catch (e) {}
         }
 
         function haptic(type = 'light') {
@@ -923,6 +921,43 @@
                 }
             } catch (e) {
                 console.warn('Не удалось загрузить профиль с бэкенда:', e);
+            }
+        }
+
+        async function loadLeaderboard() {
+            const list = document.getElementById('leaderboardList');
+            try {
+                const resp = await fetch(`${API_BASE_URL}/api/leaderboard`);
+                if (!resp.ok) return;
+                const data = await resp.json();
+
+                if (!data || data.length === 0) {
+                    list.innerHTML = `
+                        <div class="stage-card" style="text-align: center; padding: 24px 16px;">
+                            <div style="font-size: 32px; margin-bottom: 10px;">🚀</div>
+                            <div style="font-size: 15px; color: var(--text-main); font-weight: 800; margin-bottom: 6px;">Пока никто не долетел!</div>
+                            <div style="font-size: 13px; color: var(--text-muted); line-height: 1.4;">Запусти миссию и стань первым пилотом в бортовом журнале!</div>
+                        </div>`;
+                    return;
+                }
+
+                const medals = ['🥇', '🥈', '🥉'];
+                list.innerHTML = data.map((p, idx) => `
+                    <div class="stage-card" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; margin-bottom: 8px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 18px; font-weight: 900;">${medals[idx] || (idx + 1) + '.'}</span>
+                            <div style="text-align: left;">
+                                <div style="font-weight: 800; color: #fff; font-size: 14px;">${p.callsign}</div>
+                                <div style="font-size: 11px; color: var(--text-muted);">Группа: ${p.group || '—'}</div>
+                            </div>
+                        </div>
+                        <div style="font-weight: 900; color: var(--neon-gold); font-size: 15px;">
+                            ${p.score.toLocaleString('ru-RU')} PTS
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.warn('Не удалось загрузить лидерборд:', e);
             }
         }
 
@@ -1983,6 +2018,9 @@
             document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
             document.getElementById(`tab-${tabId}`).classList.add('active');
             if (btn) btn.classList.add('active');
+
+            if (tabId === 'leaderboard') loadLeaderboard();
+            if (tabId === 'profile') loadProfileFromBackend();
         }
 
         /* =========================================================================
