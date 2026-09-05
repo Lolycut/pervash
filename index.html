@@ -910,7 +910,10 @@
             if (!tg?.initData) return;
             try {
                 const resp = await fetch(`${API_BASE_URL}/api/profile`, {
-                    headers: { 'Authorization': `Bearer ${tg.initData}` }
+                    headers: { 
+                    'Authorization': `Bearer ${tg.initData}`,
+                    'bypass-tunnel-reminder': 'true'
+                            }
                 });
                 if (resp.ok) {
                     const data = await resp.json();
@@ -929,22 +932,24 @@
         async function saveScoreToBackend(score, isExpert) {
             if (!tg?.initData) return null;
             try {
-                const resp = await fetch(`${API_BASE_URL}/api/save_score`, {
+                    const resp = await fetch(`${API_BASE_URL}/api/save_score`, {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${tg.initData}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ score: score, is_experienced: isExpert ? 1 : 0 })
-                });
-                if (resp.ok) {
-                    return await resp.json();
-                }
-            } catch (e) {
-                console.error('Ошибка сохранения счета:', e);
+                    'Authorization': `Bearer ${tg.initData}`,
+                    'Content-Type': 'application/json',
+                    'bypass-tunnel-reminder': 'true',
+                    'ngrok-skip-browser-warning': 'true'
+                },
+                body: JSON.stringify({ score: score, is_experienced: isExpert ? 1 : 0 })
+            });
+            if (resp.ok) {
+                return await resp.json();
             }
-            return null;
+        } catch (e) {
+            console.error('Ошибка сохранения счета:', e);
         }
+        return null;
+    }
 
         /* =========================================================================
            ГЛОБАЛЬНОЕ СОСТОЯНИЕ МИССИИ
